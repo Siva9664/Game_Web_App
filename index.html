@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="classic" data-colormode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameVault — Retro Arcade Hub</title>
+  <meta name="description" content="A stunning multi-game arcade featuring Snake & Ladder, Tic-Tac-Toe, Memory Match, Classic Snake, and 2048. Play locally or against AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Baloo+2:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/snakes.css" />
+  <link rel="stylesheet" href="css/games.css" />
+</head>
+<body>
+
+  <!-- ══ SCREEN: HUB ══ -->
+  <div id="screen-hub" class="screen active" role="main" aria-label="Game Hub">
+    <canvas id="hub-particles" aria-hidden="true"></canvas>
+
+    <header class="hub-header">
+      <div class="hub-logo">
+        <span class="logo-icon" aria-hidden="true">🎮</span>
+        <span class="logo-text">GameVault</span>
+      </div>
+      <nav class="hub-controls" aria-label="Global controls">
+        <button id="btn-dark-toggle" class="icon-btn" title="Toggle Dark/Light Mode" aria-label="Toggle dark mode">🌙</button>
+        <button id="btn-sound-toggle" class="icon-btn" title="Toggle Sound" aria-label="Toggle sound">🔊</button>
+        <button id="btn-stats" class="icon-btn" title="View Stats" aria-label="View leaderboard">📊</button>
+      </nav>
+    </header>
+
+    <section class="hub-hero" aria-labelledby="hub-title">
+      <h1 id="hub-title" class="hub-title">Choose Your Game</h1>
+      <p class="hub-subtitle">Six legendary games. One epic arcade.</p>
+    </section>
+
+    <section class="hub-games" id="hub-games" aria-label="Available games">
+      <!-- Cards injected by hub.js -->
+    </section>
+
+    <footer class="hub-footer" role="contentinfo">
+      <div class="hub-stats-bar" id="hub-stats-bar" aria-label="Player statistics">
+        <!-- Injected by hub.js -->
+      </div>
+      <p class="hub-credit">GameVault &copy; 2025 &mdash; All games run locally in your browser</p>
+    </footer>
+  </div>
+
+  <!-- ══ SCREEN: SNAKE & LADDER ══ -->
+  <div id="screen-snakes" class="screen" role="main" aria-label="Snake and Ladder game">
+    <!-- Injected by snakes.js -->
+  </div>
+
+  <!-- ══ SCREEN: TIC-TAC-TOE ══ -->
+  <div id="screen-tictactoe" class="screen" role="main" aria-label="Tic-Tac-Toe game">
+    <!-- Injected by tictactoe.js -->
+  </div>
+
+  <!-- ══ SCREEN: MEMORY MATCH ══ -->
+  <div id="screen-memory" class="screen" role="main" aria-label="Memory Match game">
+    <!-- Injected by memory.js -->
+  </div>
+
+  <!-- ══ SCREEN: CLASSIC SNAKE ══ -->
+  <div id="screen-snake" class="screen" role="main" aria-label="Classic Snake game">
+    <!-- Injected by snake.js -->
+  </div>
+
+  <!-- ══ SCREEN: 2048 ══ -->
+  <div id="screen-2048" class="screen" role="main" aria-label="2048 puzzle game">
+    <!-- Injected by puzzle2048.js -->
+  </div>
+
+  <!-- ══ GLOBAL MODAL ══ -->
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Game dialog">
+    <div id="modal-content" class="modal-box"></div>
+  </div>
+
+  <!-- Confetti canvas -->
+  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+
+  <!-- Screen transition flash -->
+  <div id="transition-overlay" class="transition-overlay" aria-hidden="true"></div>
+
+  <!-- ══ SCRIPTS ══ -->
+  <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/games/snakes.js"></script>
+  <script src="js/games/tictactoe.js"></script>
+  <script src="js/games/memory.js"></script>
+  <script src="js/games/snake.js"></script>
+  <script src="js/games/puzzle2048.js"></script>
+  <script src="js/hub.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
