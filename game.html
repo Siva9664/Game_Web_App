@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="classic" data-colormode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameVault — Retro Arcade Hub</title>
+  <meta name="description" content="A professional multi-game arcade platform with Snake & Ladder, Tic-Tac-Toe, Memory Match, Classic Snake, and 2048." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Baloo+2:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/platform.css" />
+  <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/snakes.css" />
+  <link rel="stylesheet" href="css/games.css" />
+</head>
+<body>
+
+  <!-- ══ SCREEN: AUTH ══ -->
+  <div id="screen-auth" class="screen active" role="main" aria-label="Login and Sign Up">
+    <!-- Injected by platform.js -->
+  </div>
+
+  <!-- ══ SCREEN: HUB (Platform Shell) ══ -->
+  <div id="screen-hub" class="screen" role="main" aria-label="Game Hub">
+    <!-- Sidebar injected by platform.js -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <!-- Topbar injected by platform.js -->
+    <!-- Main content injected by hub.js -->
+    <div id="platform-main" class="platform-main">
+      <!-- Hub content here -->
+    </div>
+  </div>
+
+  <!-- ══ SCREEN: SNAKE & LADDER ══ -->
+  <div id="screen-snakes" class="screen" role="main" aria-label="Snake and Ladder game"></div>
+
+  <!-- ══ SCREEN: TIC-TAC-TOE ══ -->
+  <div id="screen-tictactoe" class="screen" role="main" aria-label="Tic-Tac-Toe game"></div>
+
+  <!-- ══ SCREEN: MEMORY MATCH ══ -->
+  <div id="screen-memory" class="screen" role="main" aria-label="Memory Match game"></div>
+
+  <!-- ══ SCREEN: CLASSIC SNAKE ══ -->
+  <div id="screen-snake" class="screen" role="main" aria-label="Classic Snake game"></div>
+
+  <!-- ══ SCREEN: 2048 ══ -->
+  <div id="screen-2048" class="screen" role="main" aria-label="2048 puzzle game"></div>
+
+  <!-- ══ GLOBAL MODAL ══ -->
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Game dialog">
+    <div id="modal-content" class="modal-box"></div>
+  </div>
+
+  <!-- Confetti canvas -->
+  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+  <!-- Screen transition flash -->
+  <div id="transition-overlay" class="transition-overlay" aria-hidden="true"></div>
+
+  <!-- ══ SCRIPTS ══ -->
+  <script src="js/storage.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/games/snakes.js"></script>
+  <script src="js/games/tictactoe.js"></script>
+  <script src="js/games/memory.js"></script>
+  <script src="js/games/snake.js"></script>
+  <script src="js/games/puzzle2048.js"></script>
+  <script src="js/hub.js"></script>
+  <script src="js/platform.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
