@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrom Masters - Interactive 2D Physics & AI Game</title>
+  <meta name="description" content="Full-stack interactive Carrom game with 2D impulse physics, AI Bot opponent, synthesized Web Audio, and offline support.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="brand-icon">🎯</div>
+        <div class="brand-text">
+          <h1>Carrom<span>Masters</span></h1>
+          <span class="badge backend-badge">Express + MongoDB</span>
+        </div>
+      </div>
+
+      <div class="nav-status">
+        <div class="status-indicator" id="dbStatusBadge">
+          <span class="status-dot"></span>
+          <span id="dbStatusText">Checking DB...</span>
+        </div>
+        <div class="server-info">
+          <span class="chip">API: <code>/api/*</code></span>
+        </div>
+      </div>
+
+      <nav class="tab-nav">
+        <button class="nav-tab active" data-tab="gameplay-tab" id="tabBtnGame">
+          <span class="tab-icon">🕹️</span> Match Arena
+        </button>
+        <button class="nav-tab" data-tab="leaderboard-tab" id="tabBtnLeaderboard">
+          <span class="tab-icon">🏆</span> Leaderboard
+        </button>
+        <button class="nav-tab" data-tab="players-tab" id="tabBtnPlayers">
+          <span class="tab-icon">👤</span> Players & Stats
+        </button>
+        <button class="nav-tab" data-tab="api-tab" id="tabBtnApi">
+          <span class="tab-icon">⚡</span> API Console
+        </button>
+      </nav>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- TAB 1: Match Arena & Interactive Carrom Board -->
+      <section id="gameplay-tab" class="tab-pane active">
+        <div class="arena-grid">
+          
+          <!-- Left Column: Match Controls & Scoreboard -->
+          <div class="panel match-panel">
+            <div class="panel-header">
+              <h2>Match Controller</h2>
+              <span class="match-status-badge" id="matchStatusLabel">No Active Match</span>
+            </div>
+
+            <!-- Match Setup -->
+            <div id="matchSetupSection" class="section-box">
+              <h3>Start New Match</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="selectPlayer1">Player 1 (White)</label>
+                  <select id="selectPlayer1" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                  <label for="selectPlayer2">Player 2 (Black)</label>
+                  <select id="selectPlayer2" class="form-control"></select>
+                </div>
+              </div>
+              <div class="action-buttons">
+                <button class="btn btn-primary" id="btnStartMatch">
+                  🚀 Launch Live Match
+                </button>
+                <button class="btn btn-secondary" id="btnQuickSeedPrompt">
+                  🌱 Load Sample Players
+                </button>
+              </div>
+            </div>
+
+            <!-- Active Match Dashboard -->
+            <div id="activeMatchSection" class="section-box hidden">
+              <div class="score-card-grid">
+                <div class="score-card p1-card" id="p1Card">
+                  <div class="player-turn-tag" id="p1TurnTag">Turn</div>
+                  <div class="player-name" id="p1Name">Player 1</div>
+                  <div class="player-score" id="p1Score">0</div>
+                  <div class="coins-count">White Pocketed: <b id="p1CoinsCount">0</b></div>
+                </div>
+
+                <div class="score-card p2-card" id="p2Card">
+                  <div class="player-turn-tag hidden" id="p2TurnTag">Turn</div>
+                  <div class="player-name" id="p2Name">Player 2</div>
+                  <div class="player-score" id="p2Score">0</div>
+                  <div class="coins-count">Black Pocketed: <b id="p2CoinsCount">0</b></div>
+                </div>
+              </div>
+
+              <!-- Queen Status Indicator -->
+              <div class="queen-status-card" id="queenStatusCard">
+                <div class="queen-icon">👑</div>
+                <div class="queen-info">
+                  <div class="queen-title">Queen Status (3 pts)</div>
+                  <div class="queen-desc" id="queenStatusText">On Board (Center)</div>
+                </div>
+              </div>
+
+              <!-- Quick Action Pocket Buttons -->
+              <div class="pocket-actions-box">
+                <h4>Quick Pocket Action (Current Turn)</h4>
+                <div class="btn-group">
+                  <button class="btn btn-pocket btn-white-coin" id="btnPocketWhite">
+                    ⚪ Pocket White (+1)
+                  </button>
+                  <button class="btn btn-pocket btn-black-coin" id="btnPocketBlack">
+                    ⚫ Pocket Black (+1)
+                  </button>
+                  <button class="btn btn-pocket btn-queen-coin" id="btnPocketQueen">
+                    👑 Pocket Queen (+3)
+                  </button>
+                  <button class="btn btn-pocket btn-penalty-coin" id="btnFoulPenalty">
+                    ⚠️ Foul / Penalty (-1)
+                  </button>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="btnSwitchTurn" style="margin-top: 8px;">
+                  🔄 Switch Turn
+                </button>
+              </div>
+
+              <!-- Match Sync & Save Controls -->
+              <div class="match-save-controls">
+                <div class="live-sync-indicator">
+                  <span class="pulse-dot"></span> Match ID: <code id="activeMatchIdDisplay">---</code>
+                </div>
+                <div class="btn-group">
+                  <button class="btn btn-warning" id="btnSyncLiveState">
+                    📡 PATCH Live State
+                  </button>
+                  <button class="btn btn-success" id="btnFinishMatch">
+                    🏁 Complete & Save Match
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coin Pocketing Event Log -->
+            <div class="panel-section coin-log-section">
+              <div class="section-title-row">
+                <h3>Coin Pocketing Log</h3>
+                <span class="badge" id="coinLogCount">0 events</span>
+              </div>
+              <div class="coin-log-list" id="coinLogContainer">
+                <div class="empty-state">No coins pocketed yet. Strike or click pocket buttons!</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right Column: Interactive Wooden Carrom Board Visualizer -->
+          <div class="panel board-panel">
+            
+            <!-- Game Mode & Settings Bar -->
+            <div class="game-mode-bar">
+              <div class="mode-pill-group" id="modeSelectorGroup">
+                <button class="mode-pill-btn active" data-mode="ai" id="btnModeAI">
+                  <span>🤖</span> vs AI Bot
+                </button>
+                <button class="mode-pill-btn" data-mode="pvp" id="btnModePVP">
+                  <span>👥</span> Pass & Play
+                </button>
+                <button class="mode-pill-btn" data-mode="practice" id="btnModePractice">
+                  <span>🎯</span> Practice
+                </button>
+              </div>
+
+              <!-- AI Difficulty Tiers (Visible when in vs AI mode) -->
+              <div class="ai-difficulty-wrapper" id="aiDifficultyWrapper">
+                <span class="ai-diff-label">AI:</span>
+                <button class="diff-btn active diff-easy" data-diff="easy" id="btnDiffEasy">Easy</button>
+                <button class="diff-btn diff-med" data-diff="medium" id="btnDiffMed">Medium</button>
+                <button class="diff-btn diff-hard" data-diff="hard" id="btnDiffHard">Hard</button>
+              </div>
+
+              <!-- Sound / Volume Controls -->
+              <div class="sound-controls">
+                <button class="btn-icon-toggle" id="btnToggleSound" title="Toggle Sound FX">
+                  <span id="soundIcon">🔊</span>
+                </button>
+                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.05" value="0.7" title="Volume">
+              </div>
+            </div>
+
+            <!-- Board Wrapper & Canvas -->
+            <div class="board-wrapper">
+              <div class="board-turn-banner" id="boardTurnBanner">
+                <span id="turnBannerIcon">⚪</span>
+                <span id="turnBannerText">Player 1's Turn (Bottom)</span>
+              </div>
+              <canvas id="carromCanvas" width="600" height="600"></canvas>
+            </div>
+
+            <!-- Interactive Board Controls Toolbar -->
+            <div class="board-interactive-toolbar">
+              <!-- Row 1: Striker Baseline Position Slider -->
+              <div class="control-row">
+                <div class="control-label">
+                  <span>📍</span> Baseline:
+                </div>
+                <div class="slider-container">
+                  <input type="range" id="strikerPositionSlider" class="striker-slider" min="80" max="520" value="300" step="1">
+                  <span class="badge" id="strikerPosBadge">Center</span>
+                </div>
+              </div>
+
+              <!-- Row 2: Aim Angle & Fine Tuning -->
+              <div class="control-row">
+                <div class="control-label">
+                  <span>📐</span> Aim Angle:
+                </div>
+                <div class="angle-adjust-group">
+                  <button class="btn-angle" id="btnAngleMinus5">-5°</button>
+                  <button class="btn-angle" id="btnAngleMinus1">-1°</button>
+                  <span class="angle-display" id="aimAngleDisplay">90.0°</span>
+                  <button class="btn-angle" id="btnAnglePlus1">+1°</button>
+                  <button class="btn-angle" id="btnAnglePlus5">+5°</button>
+                </div>
+                <label class="toggle-switch-group">
+                  <input type="checkbox" id="chkTrajectoryGuide" checked>
+                  <span>Guideline Assist</span>
+                </label>
+              </div>
+
+              <!-- Row 3: Power Gauge & Strike Action -->
+              <div class="control-row">
+                <div class="control-label">
+                  <span>⚡</span> Power:
+                </div>
+                <div class="power-meter-container">
+                  <div class="power-meter-fill" id="powerMeterFill"></div>
+                </div>
+                <button class="btn-strike-action" id="btnFireStrike">
+                  ⚡ STRIKE
+                </button>
+              </div>
+
+              <!-- Row 4: Practice Presets & Reset -->
+              <div class="control-row" id="practiceControlsRow">
+                <div class="control-label">
+                  <span>🎲</span> Presets:
+                </div>
+                <div class="preset-buttons">
+                  <button class="btn-preset" id="btnPresetClassic">Standard Classic</button>
+                  <button class="btn-preset" id="btnPresetQueenChallenge">Queen Challenge</button>
+                  <button class="btn-preset" id="btnPresetBankShot">Corner Bank Shot</button>
+                  <button class="btn-preset" id="btnPresetClear">Reset Board</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Board Stats Bar -->
+            <div class="board-stats-bar">
+              <div class="stat-pill">⚪ Remaining White: <span id="statRemainingWhite">9</span></div>
+              <div class="stat-pill">⚫ Remaining Black: <span id="statRemainingBlack">9</span></div>
+              <div class="stat-pill">👑 Queen: <span id="statQueenStatus">Active</span></div>
+              <div class="stat-pill">⏱️ Duration: <span id="matchDurationTimer">00:00</span></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Match Winner Celebration Modal -->
+      <div class="modal-backdrop hidden" id="winnerCelebrationModal">
+        <div class="modal-card">
+          <div class="modal-trophy">🏆</div>
+          <h2 class="modal-title" id="winnerModalTitle">Victory!</h2>
+          <p class="modal-subtitle" id="winnerModalSubtitle">Player 1 conquered the board!</p>
+          <div class="modal-stats-grid">
+            <div class="modal-stat-item">
+              <span class="modal-stat-label">Final Score</span>
+              <span class="modal-stat-val text-accent" id="modalFinalScore">0 - 0</span>
+            </div>
+            <div class="modal-stat-item">
+              <span class="modal-stat-label">Queen Covered By</span>
+              <span class="modal-stat-val text-warning" id="modalQueenCovered">---</span>
+            </div>
+            <div class="modal-stat-item">
+              <span class="modal-stat-label">Match Duration</span>
+              <span class="modal-stat-val" id="modalMatchDuration">00:00</span>
+            </div>
+            <div class="modal-stat-item">
+              <span class="modal-stat-label">Total Coins Pocketed</span>
+              <span class="modal-stat-val text-success" id="modalTotalCoins">0</span>
+            </div>
+          </div>
+          <div class="modal-buttons">
+            <button class="btn btn-primary" id="btnModalPlayAgain">🔄 Play Rematch</button>
+            <button class="btn btn-secondary" id="btnModalClose">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Leaderboard -->
+      <section id="leaderboard-tab" class="tab-pane">
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>Global Carrom Leaderboard</h2>
+              <p class="subtitle">Real-time dynamic ranking computed via MongoDB Aggregation</p>
+            </div>
+            <div class="leaderboard-controls">
+              <label>Sort By:</label>
+              <select id="selectLeaderboardSort" class="form-control sm-select">
+                <option value="wins">Total Wins</option>
+                <option value="winRate">Win Rate (%)</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" id="btnRefreshLeaderboard">🔄 Refresh</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="leaderboardTable">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Total Wins</th>
+                  <th>Games Played</th>
+                  <th>Losses</th>
+                  <th>Win Rate</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardTbody">
+                <tr><td colspan="7" class="loading-cell">Loading leaderboard data...</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Leaderboard Pagination -->
+          <div class="pagination-bar" id="lbPagination">
+            <span class="pagination-info" id="lbPageInfo">Showing 1-10</span>
+            <div class="pagination-buttons">
+              <button class="btn btn-sm btn-outline" id="lbBtnPrev" disabled>← Previous</button>
+              <button class="btn btn-sm btn-outline" id="lbBtnNext">Next →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: Players & Match History -->
+      <section id="players-tab" class="tab-pane">
+        <div class="players-layout">
+          
+          <!-- Register Player Card -->
+          <div class="panel">
+            <div class="panel-header">
+              <h2>Register New Player</h2>
+            </div>
+            <form id="formRegisterPlayer" class="styled-form">
+              <div class="form-group">
+                <label for="inputUsername">Username (3-30 chars, alphanumeric)</label>
+                <input type="text" id="inputUsername" class="form-control" placeholder="e.g. StrikeChampion" required minlength="3" maxlength="30">
+              </div>
+              <div class="form-group">
+                <label for="inputEmail">Email Address</label>
+                <input type="email" id="inputEmail" class="form-control" placeholder="e.g. champion@carrom.io" required>
+              </div>
+              <button type="submit" class="btn btn-primary btn-block" id="btnSubmitPlayer">
+                ➕ Register Player
+              </button>
+            </form>
+
+            <div class="panel-divider"></div>
+
+            <div class="panel-header">
+              <h3>All Registered Players</h3>
+              <input type="text" id="inputSearchPlayers" class="form-control sm-input" placeholder="🔍 Search...">
+            </div>
+            <div class="players-list-compact" id="playersListContainer">
+              <div class="empty-state">Loading players...</div>
+            </div>
+          </div>
+
+          <!-- Player Profile & Match History Detail View -->
+          <div class="panel" id="playerDetailPanel">
+            <div class="panel-header">
+              <h2>Player Profile & Stats</h2>
+              <span class="badge" id="profilePlayerIdBadge">Select a player</span>
+            </div>
+
+            <div id="profileEmptyState" class="empty-state-large">
+              <div class="empty-icon">👤</div>
+              <h3>Select a player to view detailed profile</h3>
+              <p>Click on any player from the list on the left or the leaderboard.</p>
+            </div>
+
+            <div id="profileContent" class="hidden">
+              <div class="profile-header-card">
+                <div class="profile-avatar" id="profAvatar">🎯</div>
+                <div class="profile-main-meta">
+                  <h3 id="profUsername">Username</h3>
+                  <p id="profEmail">user@example.com</p>
+                  <span class="joined-date" id="profJoined">Member since: ---</span>
+                </div>
+              </div>
+
+              <div class="stats-metric-grid">
+                <div class="metric-card">
+                  <div class="metric-label">Total Wins</div>
+                  <div class="metric-value text-accent" id="profWins">0</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Games Played</div>
+                  <div class="metric-value" id="profGames">0</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Win Rate</div>
+                  <div class="metric-value text-success" id="profWinRate">0%</div>
+                </div>
+                <div class="metric-card">
+                  <div class="metric-label">Queens Covered</div>
+                  <div class="metric-value text-warning" id="profQueens">0</div>
+                </div>
+              </div>
+
+              <div class="panel-section">
+                <h3>Match History</h3>
+                <div class="history-list" id="profMatchHistory">
+                  <div class="empty-state">No match records found.</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 4: API Console & Documentation Explorer -->
+      <section id="api-tab" class="tab-pane">
+        <div class="api-explorer-layout">
+          
+          <!-- Endpoint List & Selector -->
+          <div class="panel">
+            <div class="panel-header">
+              <h2>API Endpoints Reference</h2>
+            </div>
+            <div class="endpoint-cards-list">
+              
+              <div class="endpoint-card active" data-endpoint="post-player">
+                <div class="ep-badge ep-post">POST</div>
+                <div class="ep-details">
+                  <code>/api/players</code>
+                  <span>Register a new player</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="get-player">
+                <div class="ep-badge ep-get">GET</div>
+                <div class="ep-details">
+                  <code>/api/players/:id</code>
+                  <span>Get player profile & stats</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="post-match">
+                <div class="ep-badge ep-post">POST</div>
+                <div class="ep-details">
+                  <code>/api/matches</code>
+                  <span>Save match result & update stats</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="get-match">
+                <div class="ep-badge ep-get">GET</div>
+                <div class="ep-details">
+                  <code>/api/matches/:id</code>
+                  <span>Get match detail</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="get-player-matches">
+                <div class="ep-badge ep-get">GET</div>
+                <div class="ep-details">
+                  <code>/api/players/:id/matches</code>
+                  <span>Player match history (paginated)</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="get-leaderboard">
+                <div class="ep-badge ep-get">GET</div>
+                <div class="ep-details">
+                  <code>/api/leaderboard</code>
+                  <span>Ranked leaderboard (paginated)</span>
+                </div>
+              </div>
+
+              <div class="endpoint-card" data-endpoint="patch-match-live">
+                <div class="ep-badge ep-patch">PATCH</div>
+                <div class="ep-details">
+                  <code>/api/matches/:id/live</code>
+                  <span>Update in-progress match state</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Interactive Request & Response Box -->
+          <div class="panel">
+            <div class="panel-header">
+              <h2 id="apiConsoleTitle">Test Endpoint: POST /api/players</h2>
+              <button class="btn btn-primary btn-sm" id="btnExecuteApiCall">⚡ Send Request</button>
+            </div>
+
+            <div class="api-request-form">
+              <div class="form-group">
+                <label>Request URL</label>
+                <div class="url-input-group">
+                  <span class="url-method-tag" id="apiMethodTag">POST</span>
+                  <input type="text" id="apiUrlInput" class="form-control" value="/api/players">
+                </div>
+              </div>
+
+              <div class="form-group" id="apiBodyGroup">
+                <label>JSON Request Body</label>
+                <textarea id="apiBodyInput" class="code-editor" rows="6">{
+  "username": "Striker_99",
+  "email": "striker99@carrom.io"
+}</textarea>
+              </div>
+
+              <div class="form-group">
+                <div class="section-title-row">
+                  <label>Response Preview (<span id="apiResponseStatus">Ready</span>)</label>
+                  <span id="apiResponseTime" class="timing-badge">0 ms</span>
+                </div>
+                <pre class="code-output" id="apiResponseOutput">// Click "Send Request" to test this endpoint</pre>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="toast-container"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
