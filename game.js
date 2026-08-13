@@ -1,6 +1,7 @@
 /* =========================================================
    ROYAL 8 BALL
-   PREMIUM SMOOTH POOL ENGINE
+   CLEAN GAME.JS
+   SINGLE PLAYER + TWO PLAYER + ONLINE MULTIPLAYER
 ========================================================= */
 
 
@@ -13,8 +14,10 @@ const gameScreen = document.getElementById("gameScreen");
 
 const singleModeButton = document.getElementById("singleModeButton");
 const twoModeButton = document.getElementById("twoModeButton");
+const onlineModeButton = document.getElementById("onlineModeButton");
 
 const startButton = document.getElementById("startButton");
+
 const backButton = document.getElementById("backButton");
 const restartButton = document.getElementById("restartButton");
 
@@ -25,8 +28,17 @@ const player1Input = document.getElementById("player1Input");
 const player2Input = document.getElementById("player2Input");
 const player2Box = document.getElementById("player2Box");
 
+const onlinePanel = document.getElementById("onlinePanel");
+const createRoomButton = document.getElementById("createRoomButton");
+const joinRoomButton = document.getElementById("joinRoomButton");
+
+const roomCodeInput = document.getElementById("roomCodeInput");
+const createdRoom = document.getElementById("createdRoom");
+const roomCodeText = document.getElementById("roomCodeText");
+const onlineStatus = document.getElementById("onlineStatus");
+
 const canvas = document.getElementById("poolCanvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas ? canvas.getContext("2d") : null;
 
 const turnText = document.getElementById("turnText");
 const statusText = document.getElementById("statusText");
@@ -54,12 +66,49 @@ const resultMessage = document.getElementById("resultMessage");
 
 
 /* =========================================================
+   SOCKET.IO
+========================================================= */
+
+let socket = null;
+
+if (typeof io !== "undefined") {
+
+    socket = io("http://127.0.0.1:5000", {
+        autoConnect: false
+    });
+
+}
+
+
+/* =========================================================
+   ONLINE STATE
+========================================================= */
+
+let onlineRoom = null;
+let onlinePlayer = null;
+let onlineConnected = false;
+let onlineReady = false;
+
+
+/* =========================================================
    GAME STATE
 ========================================================= */
 
 let gameMode = "single";
 
-let players = [];
+let players = [
+    {
+        name: "Player 1",
+        group: null,
+        score: 0
+    },
+    {
+        name: "Royal AI",
+        group: null,
+        score: 0
+    }
+];
+
 let currentPlayer = 0;
 
 let balls = [];
@@ -67,10 +116,14 @@ let pockets = [];
 
 let gameRunning = false;
 let shotInProgress = false;
+
 let aiming = false;
 
-let mouseX = 0;
-let mouseY = 0;
+let pointerX = 0;
+let pointerY = 0;
+
+let aimStartX = 0;
+let aimStartY = 0;
 
 let power = 0;
 
@@ -82,8 +135,11 @@ let aiTimer = null;
 let shotPocketed = [];
 let shotCueBallPocketed = false;
 let shotHadContact = false;
-
 let firstContactBall = null;
+let eightBallPocketed = false;
+let scratch = false;
+
+let winner = null;
 
 
 /* =========================================================
@@ -110,34 +166,13 @@ const TABLE = {
 
 const PHYSICS = {
 
-    /*
-       Lower = balls roll longer
-    */
-
     friction: 0.992,
-
-    /*
-       Cushion bounce
-    */
 
     cushionRestitution: 0.86,
 
-    /*
-       Ball collision
-    */
-
     ballRestitution: 0.96,
 
-    /*
-       Maximum velocity
-    */
-
     maxSpeed: 16,
-
-    /*
-       Very small velocity
-       gets stopped
-    */
 
     stopSpeed: 0.025
 
@@ -145,7 +180,7 @@ const PHYSICS = {
 
 
 /* =========================================================
-   COLORS
+   BALL COLORS
 ========================================================= */
 
 const solidColors = {
@@ -180,8 +215,13 @@ const stripeColors = {
 
 function setupCanvas() {
 
+    if (!canvas || !ctx) return;
+
     const dpr =
-        Math.min(window.devicePixelRatio || 1, 2);
+        Math.min(
+            window.devicePixelRatio || 1,
+            2
+        );
 
     canvas.width =
         TABLE.width * dpr;
@@ -203,7 +243,6 @@ function setupCanvas() {
 
 }
 
-
 window.addEventListener(
     "resize",
     setupCanvas
@@ -211,60 +250,892 @@ window.addEventListener(
 
 
 /* =========================================================
-   MODE
+   MODE SELECTION
 ========================================================= */
 
-singleModeButton.addEventListener(
-    "click",
-    () => {
+function selectMode(mode) {
 
-        gameMode = "single";
+    gameMode = mode;
 
-        singleModeButton.classList.add("selected");
-        twoModeButton.classList.remove("selected");
+    if (singleModeButton) {
 
-        player2Box.classList.add("hidden");
-
-    }
-);
-
-
-twoModeButton.addEventListener(
-    "click",
-    () => {
-
-        gameMode = "two";
-
-        twoModeButton.classList.add("selected");
-        singleModeButton.classList.remove("selected");
-
-        player2Box.classList.remove("hidden");
+        singleModeButton.classList.toggle(
+            "selected",
+            mode === "single"
+        );
 
     }
-);
+
+    if (twoModeButton) {
+
+        twoModeButton.classList.toggle(
+            "selected",
+            mode === "two"
+        );
+
+    }
+
+    if (onlineModeButton) {
+
+        onlineModeButton.classList.toggle(
+            "selected",
+            mode === "online"
+        );
+
+    }
+
+
+    if (mode === "single") {
+
+        if (player2Box) {
+            player2Box.classList.add("hidden");
+        }
+
+        if (onlinePanel) {
+            onlinePanel.classList.add("hidden");
+        }
+
+        if (startButton) {
+            startButton.classList.remove("hidden");
+        }
+
+    }
+
+
+    if (mode === "two") {
+
+        if (player2Box) {
+            player2Box.classList.remove("hidden");
+        }
+
+        if (onlinePanel) {
+            onlinePanel.classList.add("hidden");
+        }
+
+        if (startButton) {
+            startButton.classList.remove("hidden");
+        }
+
+    }
+
+
+    if (mode === "online") {
+
+        if (player2Box) {
+            player2Box.classList.add("hidden");
+        }
+
+        if (onlinePanel) {
+            onlinePanel.classList.remove("hidden");
+        }
+
+        if (startButton) {
+            startButton.classList.add("hidden");
+        }
+
+        connectSocket();
+
+    }
+
+}
+
+
+if (singleModeButton) {
+
+    singleModeButton.addEventListener(
+        "click",
+        () => selectMode("single")
+    );
+
+}
+
+
+if (twoModeButton) {
+
+    twoModeButton.addEventListener(
+        "click",
+        () => selectMode("two")
+    );
+
+}
+
+
+if (onlineModeButton) {
+
+    onlineModeButton.addEventListener(
+        "click",
+        () => selectMode("online")
+    );
+
+}
+
+
+/* =========================================================
+   SOCKET CONNECTION
+========================================================= */
+
+function connectSocket() {
+
+    if (!socket) {
+
+        if (onlineStatus) {
+
+            onlineStatus.textContent =
+                "● SOCKET.IO NOT LOADED";
+
+        }
+
+        return;
+
+    }
+
+
+    if (socket.connected) {
+
+        onlineConnected = true;
+
+        if (onlineStatus) {
+
+            onlineStatus.textContent =
+                "● SERVER CONNECTED";
+
+        }
+
+        return;
+
+    }
+
+
+    if (onlineStatus) {
+
+        onlineStatus.textContent =
+            "● CONNECTING...";
+
+    }
+
+    socket.connect();
+
+}
+
+
+/* =========================================================
+   SOCKET EVENTS
+========================================================= */
+
+if (socket) {
+
+
+    socket.on(
+        "connect",
+        () => {
+
+            onlineConnected = true;
+
+            console.log(
+                "Connected:",
+                socket.id
+            );
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● SERVER CONNECTED";
+
+            }
+
+        }
+    );
+
+
+    socket.on(
+        "disconnect",
+        () => {
+
+            onlineConnected = false;
+            onlineReady = false;
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● SERVER DISCONNECTED";
+
+            }
+
+        }
+    );
+
+
+    socket.on(
+        "connect_error",
+        error => {
+
+            console.error(
+                "Socket connection error:",
+                error
+            );
+
+            onlineConnected = false;
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● SERVER CONNECTION FAILED";
+
+            }
+
+        }
+    );
+
+
+    /* =============================================
+       ROOM CREATED
+    ============================================= */
+
+    socket.on(
+        "room_created",
+        data => {
+
+            console.log(
+                "ROOM CREATED:",
+                data
+            );
+
+
+            onlineRoom =
+                data.room;
+
+            onlinePlayer = 0;
+
+
+            if (roomCodeText) {
+
+                roomCodeText.textContent =
+                    data.room;
+
+            }
+
+
+            if (createdRoom) {
+
+                createdRoom.classList.remove(
+                    "hidden"
+                );
+
+            }
+
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● WAITING FOR PLAYER 2";
+
+            }
+
+
+            if (statusText) {
+
+                statusText.textContent =
+                    `Room ${data.room} created. Share this code with your friend.`;
+
+            }
+
+        }
+    );
+
+
+    /* =============================================
+       ROOM JOINED
+    ============================================= */
+
+    socket.on(
+        "room_joined",
+        data => {
+
+            console.log(
+                "ROOM JOINED:",
+                data
+            );
+
+
+            onlineRoom =
+                data.room;
+
+            onlinePlayer = 1;
+
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● ROOM JOINED — WAITING FOR GAME";
+
+            }
+
+        }
+    );
+
+
+    /* =============================================
+       PLAYER JOINED
+    ============================================= */
+
+    socket.on(
+        "player_joined",
+        data => {
+
+            console.log(
+                "PLAYER JOINED:",
+                data
+            );
+
+
+            onlineReady = true;
+
+
+            if (onlineStatus) {
+
+                onlineStatus.textContent =
+                    "● PLAYER 2 CONNECTED";
+
+            }
+
+
+            if (data.players) {
+
+                updateOnlinePlayers(
+                    data.players
+                );
+
+            }
+
+
+            if (data.state) {
+
+                loadRemoteState(
+                    data.state
+                );
+
+            }
+
+
+            startOnlineGameIfNeeded();
+
+        }
+    );
+
+
+    /* =============================================
+       GAME START
+    ============================================= */
+
+    socket.on(
+        "game_start",
+        data => {
+
+            console.log(
+                "GAME START:",
+                data
+            );
+
+
+            onlineReady = true;
+
+
+            if (data.players) {
+
+                updateOnlinePlayers(
+                    data.players
+                );
+
+            }
+
+
+            if (data.state) {
+
+                loadRemoteState(
+                    data.state
+                );
+
+            }
+
+
+            startOnlineGameIfNeeded();
+
+        }
+    );
+
+
+    /* =============================================
+       REMOTE SHOT
+    ============================================= */
+
+    socket.on(
+        "shot",
+        data => {
+
+            if (gameMode !== "online") {
+                return;
+            }
+
+
+            if (
+                data.player ===
+                onlinePlayer
+            ) {
+
+                return;
+
+            }
+
+
+            if (shotInProgress) {
+                return;
+            }
+
+
+            currentPlayer =
+                data.player;
+
+
+            shoot(
+                data.dx,
+                data.dy,
+                data.power,
+                true
+            );
+
+        }
+    );
+
+
+    /* =============================================
+       STATE UPDATE
+    ============================================= */
+
+    socket.on(
+        "state_update",
+        data => {
+
+            if (gameMode !== "online") {
+                return;
+            }
+
+
+            if (!data.state) {
+                return;
+            }
+
+
+            loadRemoteState(
+                data.state
+            );
+
+        }
+    );
+
+
+    /* =============================================
+       TURN CHANGE
+    ============================================= */
+
+    socket.on(
+        "turn_changed",
+        data => {
+
+            currentPlayer =
+                data.player;
+
+            updatePlayerUI();
+
+        }
+    );
+
+
+    /* =============================================
+       GAME OVER
+    ============================================= */
+
+    socket.on(
+        "game_over",
+        data => {
+
+            showResult(
+                data.winner,
+                data.message ||
+                "Match complete."
+            );
+
+        }
+    );
+
+
+    /* =============================================
+       RESTART
+    ============================================= */
+
+    socket.on(
+        "restart_game",
+        () => {
+
+            createGame();
+
+            currentPlayer = 0;
+
+            gameRunning = true;
+
+            shotInProgress = false;
+
+            resultModal.classList.add(
+                "hidden"
+            );
+
+            updatePlayerUI();
+
+            startAnimation();
+
+        }
+    );
+
+
+    /* =============================================
+       SERVER ERROR
+    ============================================= */
+
+    socket.on(
+        "error_message",
+        data => {
+
+            console.error(
+                "Server error:",
+                data
+            );
+
+
+            alert(
+                data.message ||
+                "Something went wrong."
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   CREATE ROOM
+========================================================= */
+
+if (createRoomButton) {
+
+    createRoomButton.addEventListener(
+        "click",
+        createOnlineRoom
+    );
+
+}
+
+
+function createOnlineRoom() {
+
+    if (!socket) {
+
+        alert(
+            "Socket.IO is not loaded."
+        );
+
+        return;
+
+    }
+
+
+    connectSocket();
+
+
+    const name =
+        player1Input &&
+        player1Input.value.trim()
+            ? player1Input.value.trim()
+            : "Player 1";
+
+
+    if (onlineStatus) {
+
+        onlineStatus.textContent =
+            "● CREATING ROOM...";
+
+    }
+
+
+    waitForSocket(
+        () => {
+
+            socket.emit(
+                "create_room",
+                {
+                    name: name
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   JOIN ROOM
+========================================================= */
+
+if (joinRoomButton) {
+
+    joinRoomButton.addEventListener(
+        "click",
+        joinOnlineRoom
+    );
+
+}
+
+
+function joinOnlineRoom() {
+
+    if (!socket) {
+
+        alert(
+            "Socket.IO is not loaded."
+        );
+
+        return;
+
+    }
+
+
+    const code =
+        roomCodeInput
+            ? roomCodeInput.value
+                .trim()
+                .toUpperCase()
+            : "";
+
+
+    if (!code) {
+
+        alert(
+            "Please enter the room code."
+        );
+
+        return;
+
+    }
+
+
+    const name =
+        player1Input &&
+        player1Input.value.trim()
+            ? player1Input.value.trim()
+            : "Player 2";
+
+
+    onlineRoom =
+        code;
+
+
+    connectSocket();
+
+
+    if (onlineStatus) {
+
+        onlineStatus.textContent =
+            "● JOINING ROOM...";
+
+    }
+
+
+    waitForSocket(
+        () => {
+
+            socket.emit(
+                "join_room",
+                {
+                    room: code,
+                    name: name
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   WAIT FOR SOCKET
+========================================================= */
+
+function waitForSocket(callback) {
+
+    if (!socket) {
+        return;
+    }
+
+
+    if (socket.connected) {
+
+        callback();
+
+        return;
+
+    }
+
+
+    let attempts = 0;
+
+
+    const timer =
+        setInterval(
+            () => {
+
+                attempts++;
+
+
+                if (socket.connected) {
+
+                    clearInterval(timer);
+
+                    callback();
+
+                }
+
+
+                if (attempts >= 50) {
+
+                    clearInterval(timer);
+
+                    alert(
+                        "Could not connect to the Python server."
+                    );
+
+                }
+
+            },
+            100
+        );
+
+}
+
+
+/* =========================================================
+   UPDATE ONLINE PLAYERS
+========================================================= */
+
+function updateOnlinePlayers(data) {
+
+    if (!Array.isArray(data)) {
+        return;
+    }
+
+
+    if (data[0]) {
+
+        players[0].name =
+            data[0].name ||
+            "Player 1";
+
+    }
+
+
+    if (data[1]) {
+
+        players[1].name =
+            data[1].name ||
+            "Player 2";
+
+    }
+
+
+    updatePlayerUI();
+
+}
+
+
+/* =========================================================
+   START ONLINE GAME
+========================================================= */
+
+function startOnlineGameIfNeeded() {
+
+    if (!onlineReady) {
+        return;
+    }
+
+
+    if (gameRunning) {
+        return;
+    }
+
+
+    startGame(true);
+
+}
+
+
+/* =========================================================
+   START BUTTON
+========================================================= */
+
+if (startButton) {
+
+    startButton.addEventListener(
+        "click",
+        () => startGame(false)
+    );
+
+}
 
 
 /* =========================================================
    START GAME
 ========================================================= */
 
-startButton.addEventListener(
-    "click",
-    startGame
-);
-
-
-function startGame() {
+function startGame(fromOnline = false) {
 
     clearTimeout(aiTimer);
 
-    const name1 =
-        player1Input.value.trim() || "Player 1";
 
-    const name2 =
-        gameMode === "two"
-            ? player2Input.value.trim() || "Player 2"
-            : "Royal AI";
+    const name1 =
+        player1Input &&
+        player1Input.value.trim()
+            ? player1Input.value.trim()
+            : players[0].name ||
+              "Player 1";
+
+
+    let name2;
+
+
+    if (gameMode === "single") {
+
+        name2 =
+            "Royal AI";
+
+    }
+
+    else if (gameMode === "two") {
+
+        name2 =
+            player2Input &&
+            player2Input.value.trim()
+                ? player2Input.value.trim()
+                : "Player 2";
+
+    }
+
+    else {
+
+        name2 =
+            players[1].name ||
+            "Player 2";
+
+    }
 
 
     players = [
@@ -287,19 +1158,65 @@ function startGame() {
     currentPlayer = 0;
 
     gameRunning = true;
+
     shotInProgress = false;
+
     aiming = false;
 
-    resultModal.classList.add("hidden");
-
-    startScreen.classList.add("hidden");
-    gameScreen.classList.remove("hidden");
+    winner = null;
 
 
-    modeLabel.textContent =
-        gameMode === "single"
-            ? "VS ROYAL AI"
-            : "2 PLAYER DUEL";
+    if (resultModal) {
+
+        resultModal.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    if (startScreen) {
+
+        startScreen.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    if (gameScreen) {
+
+        gameScreen.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    if (modeLabel) {
+
+        if (gameMode === "single") {
+
+            modeLabel.textContent =
+                "VS ROYAL AI";
+
+        }
+
+        else if (gameMode === "two") {
+
+            modeLabel.textContent =
+                "2 PLAYER DUEL";
+
+        }
+
+        else {
+
+            modeLabel.textContent =
+                "ONLINE MATCH";
+
+        }
+
+    }
 
 
     setupCanvas();
@@ -308,9 +1225,28 @@ function startGame() {
 
     updatePlayerUI();
 
-    lastTime = performance.now();
+
+    lastTime =
+        performance.now();
 
     startAnimation();
+
+
+    if (
+        gameMode === "online" &&
+        !fromOnline &&
+        socket &&
+        socket.connected
+    ) {
+
+        socket.emit(
+            "game_ready",
+            {
+                room: onlineRoom
+            }
+        );
+
+    }
 
 }
 
@@ -328,18 +1264,35 @@ function createGame() {
     shotPocketed = [];
 
     shotCueBallPocketed = false;
+
     shotHadContact = false;
+
     firstContactBall = null;
+
+    eightBallPocketed = false;
+
+    scratch = false;
 
     power = 0;
 
-    powerFill.style.width = "0%";
-    powerText.textContent = "0%";
+
+    if (powerFill) {
+
+        powerFill.style.width =
+            "0%";
+
+    }
 
 
-    /*
-       Cue ball
-    */
+    if (powerText) {
+
+        powerText.textContent =
+            "0%";
+
+    }
+
+
+    /* CUE BALL */
 
     balls.push({
 
@@ -362,68 +1315,93 @@ function createGame() {
     });
 
 
-    /*
-       Rack
-    */
+    /* RACK */
 
     const startX = 700;
 
-    const startY = TABLE.height / 2;
+    const centerY =
+        TABLE.height / 2;
 
-    const spacing = TABLE.ballRadius * 2.04;
+    const spacing =
+        TABLE.ballRadius * 2.02;
 
-    let number = 1;
+
+    const rack = [
+
+        [1],
+
+        [2, 9],
+
+        [3, 8, 10],
+
+        [4, 11, 5, 12],
+
+        [6, 13, 7, 14, 15]
+
+    ];
 
 
-    for (let row = 0; row < 5; row++) {
+    for (
+        let row = 0;
+        row < rack.length;
+        row++
+    ) {
 
-        for (let col = 0; col <= row; col++) {
+        const rowBalls =
+            rack[row];
+
+
+        for (
+            let col = 0;
+            col < rowBalls.length;
+            col++
+        ) {
+
+            const number =
+                rowBalls[col];
+
 
             const x =
                 startX +
-                row * spacing * 0.87;
+                row *
+                spacing *
+                0.866;
+
 
             const y =
-                startY +
-                (col - row / 2) * spacing;
-
-
-            let type;
-
-            if (number === 8) {
-
-                type = "eight";
-
-            } else if (number <= 7) {
-
-                type = "solid";
-
-            } else {
-
-                type = "stripe";
-
-            }
+                centerY +
+                (
+                    col -
+                    (rowBalls.length - 1) / 2
+                ) *
+                spacing;
 
 
             balls.push({
 
-                number,
-                type,
+                number: number,
 
-                x,
-                y,
+                type:
+                    number === 8
+                        ? "eight"
+                        : number <= 7
+                            ? "solid"
+                            : "stripe",
+
+                x: x,
+
+                y: y,
 
                 vx: 0,
+
                 vy: 0,
 
-                radius: TABLE.ballRadius,
+                radius:
+                    TABLE.ballRadius,
 
                 active: true
 
             });
-
-
-            number++;
 
         }
 
@@ -432,9 +1410,7 @@ function createGame() {
 
     createPockets();
 
-
-    statusText.textContent =
-        "Drag from the cue ball and release to shoot.";
+    updatePlayerUI();
 
 }
 
@@ -445,7 +1421,9 @@ function createGame() {
 
 function createPockets() {
 
-    const c = TABLE.cushion;
+    const c =
+        TABLE.cushion;
+
 
     pockets = [
 
@@ -456,7 +1434,7 @@ function createPockets() {
 
         {
             x: TABLE.width / 2,
-            y: c - 1
+            y: c - 3
         },
 
         {
@@ -471,7 +1449,7 @@ function createPockets() {
 
         {
             x: TABLE.width / 2,
-            y: TABLE.height - c + 1
+            y: TABLE.height - c + 3
         },
 
         {
@@ -485,40 +1463,40 @@ function createPockets() {
 
 
 /* =========================================================
-   ANIMATION LOOP
+   ANIMATION
 ========================================================= */
 
 function startAnimation() {
 
-    cancelAnimationFrame(animationFrame);
+    cancelAnimationFrame(
+        animationFrame
+    );
 
-    lastTime = performance.now();
+
+    lastTime =
+        performance.now();
 
 
     function loop(now) {
 
-        if (!gameRunning)
+        if (!gameRunning) {
             return;
+        }
 
-
-        /*
-           Delta time
-
-           This makes physics much smoother
-           and independent of FPS.
-        */
 
         let dt =
-            (now - lastTime) / 16.6667;
+            (now - lastTime) /
+            16.6667;
+
 
         lastTime = now;
 
 
-        /*
-           Prevent huge jumps
-        */
-
-        dt = Math.min(dt, 2);
+        dt =
+            Math.min(
+                dt,
+                2
+            );
 
 
         update(dt);
@@ -527,64 +1505,61 @@ function startAnimation() {
 
 
         animationFrame =
-            requestAnimationFrame(loop);
+            requestAnimationFrame(
+                loop
+            );
 
     }
 
 
     animationFrame =
-        requestAnimationFrame(loop);
+        requestAnimationFrame(
+            loop
+        );
 
 }
 
 
 /* =========================================================
-   UPDATE
+   UPDATE PHYSICS
 ========================================================= */
 
 function update(dt) {
 
-    if (!shotInProgress)
+    if (!shotInProgress) {
         return;
+    }
 
 
     let moving = false;
 
 
-    /*
-       Move balls
-    */
-
     for (const ball of balls) {
 
-        if (!ball.active)
+        if (!ball.active) {
             continue;
+        }
 
 
-        /*
-           Move
-        */
-
-        ball.x += ball.vx * dt;
-        ball.y += ball.vy * dt;
+        ball.x +=
+            ball.vx * dt;
 
 
-        /*
-           Friction
+        ball.y +=
+            ball.vy * dt;
 
-           Delta-time corrected.
-        */
 
         const friction =
-            Math.pow(PHYSICS.friction, dt);
+            Math.pow(
+                PHYSICS.friction,
+                dt
+            );
+
 
         ball.vx *= friction;
+
         ball.vy *= friction;
 
-
-        /*
-           Stop tiny movement
-        */
 
         if (
             Math.abs(ball.vx) <
@@ -606,10 +1581,6 @@ function update(dt) {
         }
 
 
-        /*
-           Limit speed
-        */
-
         const speed =
             Math.hypot(
                 ball.vx,
@@ -626,37 +1597,25 @@ function update(dt) {
                 PHYSICS.maxSpeed /
                 speed;
 
+
             ball.vx *= scale;
             ball.vy *= scale;
 
         }
 
 
-        /*
-           Pocket first
-        */
-
         checkPocket(ball);
 
 
-        if (!ball.active)
+        if (!ball.active) {
             continue;
+        }
 
-
-        /*
-           Cushion
-        */
 
         wallCollision(ball);
 
     }
 
-
-    /*
-       Multiple collision passes
-
-       This makes rack breaks much more stable.
-    */
 
     for (let i = 0; i < 2; i++) {
 
@@ -665,14 +1624,11 @@ function update(dt) {
     }
 
 
-    /*
-       Check if everything stopped
-    */
-
     for (const ball of balls) {
 
-        if (!ball.active)
+        if (!ball.active) {
             continue;
+        }
 
 
         if (
@@ -723,10 +1679,6 @@ function wallCollision(ball) {
         ball.radius;
 
 
-    /*
-       Left
-    */
-
     if (ball.x < left) {
 
         ball.x = left;
@@ -741,10 +1693,6 @@ function wallCollision(ball) {
 
     }
 
-
-    /*
-       Right
-    */
 
     if (ball.x > right) {
 
@@ -761,10 +1709,6 @@ function wallCollision(ball) {
     }
 
 
-    /*
-       Top
-    */
-
     if (ball.y < top) {
 
         ball.y = top;
@@ -779,10 +1723,6 @@ function wallCollision(ball) {
 
     }
 
-
-    /*
-       Bottom
-    */
 
     if (ball.y > bottom) {
 
@@ -813,11 +1753,13 @@ function ballCollisions() {
         i++
     ) {
 
-        const a = balls[i];
+        const a =
+            balls[i];
 
 
-        if (!a.active)
+        if (!a.active) {
             continue;
+        }
 
 
         for (
@@ -826,140 +1768,150 @@ function ballCollisions() {
             j++
         ) {
 
-            const b = balls[j];
+            const b =
+                balls[j];
 
 
-            if (!b.active)
+            if (!b.active) {
                 continue;
+            }
 
 
-            const dx =
+            let dx =
                 b.x - a.x;
 
-            const dy =
+            let dy =
                 b.y - a.y;
 
 
-            const distance =
-                Math.hypot(dx, dy);
+            let distance =
+                Math.hypot(
+                    dx,
+                    dy
+                );
 
 
-            const minimum =
+            const minDistance =
                 a.radius +
                 b.radius;
 
 
-            /*
-               Collision
-            */
+            if (distance === 0) {
+
+                distance = 0.001;
+
+                dx = 0.001;
+
+                dy = 0;
+
+            }
+
 
             if (
-                distance > 0 &&
-                distance < minimum
+                distance >=
+                minDistance
             ) {
 
-                const nx =
-                    dx / distance;
+                continue;
 
-                const ny =
-                    dy / distance;
+            }
 
 
-                /*
-                   Relative velocity
-                */
+            if (!shotHadContact) {
 
-                const rvx =
-                    b.vx - a.vx;
-
-                const rvy =
-                    b.vy - a.vy;
+                shotHadContact = true;
 
 
-                const relativeVelocity =
-                    rvx * nx +
-                    rvy * ny;
-
-
-                /*
-                   Record first contact
-
-                   IMPORTANT FIX
-                */
-
-                if (!shotHadContact) {
-
-                    shotHadContact = true;
+                if (!firstContactBall) {
 
                     firstContactBall =
                         a.type === "cue"
                             ? b
-                            : b.type === "cue"
-                                ? a
-                                : null;
+                            : a;
 
                 }
-
-
-                /*
-                   Only resolve if
-                   moving toward each other
-                */
-
-                if (
-                    relativeVelocity < 0
-                ) {
-
-                    const impulse =
-                        -(1 + PHYSICS.ballRestitution) *
-                        relativeVelocity /
-                        2;
-
-
-                    a.vx -=
-                        impulse * nx;
-
-                    a.vy -=
-                        impulse * ny;
-
-
-                    b.vx +=
-                        impulse * nx;
-
-                    b.vy +=
-                        impulse * ny;
-
-                }
-
-
-                /*
-                   Separate balls
-
-                   Prevents sticking.
-                */
-
-                const overlap =
-                    minimum - distance;
-
-
-                const correction =
-                    overlap / 2 + 0.01;
-
-
-                a.x -=
-                    nx * correction;
-
-                a.y -=
-                    ny * correction;
-
-
-                b.x +=
-                    nx * correction;
-
-                b.y +=
-                    ny * correction;
 
             }
+
+
+            const nx =
+                dx / distance;
+
+            const ny =
+                dy / distance;
+
+
+            const overlap =
+                minDistance -
+                distance;
+
+
+            a.x -=
+                nx *
+                overlap *
+                0.5;
+
+            a.y -=
+                ny *
+                overlap *
+                0.5;
+
+
+            b.x +=
+                nx *
+                overlap *
+                0.5;
+
+            b.y +=
+                ny *
+                overlap *
+                0.5;
+
+
+            const rvx =
+                b.vx -
+                a.vx;
+
+            const rvy =
+                b.vy -
+                a.vy;
+
+
+            const velocityAlongNormal =
+                rvx * nx +
+                rvy * ny;
+
+
+            if (
+                velocityAlongNormal > 0
+            ) {
+
+                continue;
+
+            }
+
+
+            const impulse =
+                -(
+                    1 +
+                    PHYSICS.ballRestitution
+                ) *
+                velocityAlongNormal /
+                2;
+
+
+            const ix =
+                impulse * nx;
+
+            const iy =
+                impulse * ny;
+
+
+            a.vx -= ix;
+            a.vy -= iy;
+
+            b.vx += ix;
+            b.vy += iy;
 
         }
 
@@ -976,498 +1928,54 @@ function checkPocket(ball) {
 
     for (const pocket of pockets) {
 
-        const dx =
-            ball.x - pocket.x;
-
-        const dy =
-            ball.y - pocket.y;
-
-
         const distance =
-            Math.hypot(dx, dy);
+            Math.hypot(
+                ball.x - pocket.x,
+                ball.y - pocket.y
+            );
 
-
-        /*
-           Larger entrance near pocket
-        */
 
         if (
             distance <
             TABLE.pocketRadius
         ) {
 
-            pocketBall(ball);
+            ball.active = false;
 
-            return;
+            ball.vx = 0;
+            ball.vy = 0;
 
-        }
 
-    }
-
-}
-
-
-/* =========================================================
-   POCKET BALL
-========================================================= */
-
-function pocketBall(ball) {
-
-    if (!ball.active)
-        return;
-
-
-    ball.active = false;
-
-    ball.vx = 0;
-    ball.vy = 0;
-
-
-    /*
-       Cue ball
-    */
-
-    if (ball.type === "cue") {
-
-        shotCueBallPocketed = true;
-
-        return;
-
-    }
-
-
-    /*
-       Save pocketed ball
-    */
-
-    shotPocketed.push(ball);
-
-
-    /*
-       Score
-
-       Each legal object ball = +1
-    */
-
-    players[currentPlayer].score++;
-
-    updatePlayerUI();
-
-
-    statusText.textContent =
-        `${players[currentPlayer].name} pocketed ball ${ball.number}.`;
-
-}
-
-
-/* =========================================================
-   FINISH SHOT
-========================================================= */
-
-function finishShot() {
-
-    if (!shotInProgress)
-        return;
-
-
-    shotInProgress = false;
-
-
-    /*
-       Cue ball foul
-    */
-
-    if (shotCueBallPocketed) {
-
-        statusText.textContent =
-            "FOUL — Cue ball pocketed.";
-
-        resetCueBall();
-
-        shotPocketed = [];
-
-        shotHadContact = false;
-
-        firstContactBall = null;
-
-        switchTurn();
-
-        return;
-
-    }
-
-
-    /*
-       No object ball contacted
-    */
-
-    if (!shotHadContact) {
-
-        statusText.textContent =
-            "FOUL — No ball contacted.";
-
-        switchTurn();
-
-        return;
-
-    }
-
-
-    /*
-       Assign groups after first
-       legal solid/stripe pocket
-    */
-
-    assignGroups();
-
-
-    /*
-       8 Ball
-    */
-
-    const eightPocketed =
-        shotPocketed.some(
-            ball =>
-                ball.number === 8
-        );
-
-
-    if (eightPocketed) {
-
-        handleEightBall();
-
-        return;
-
-    }
-
-
-    /*
-       No ball pocketed
-    */
-
-    if (
-        shotPocketed.length === 0
-    ) {
-
-        switchTurn();
-
-        return;
-
-    }
-
-
-    /*
-       Check whether player
-       pocketed their own group
-    */
-
-    const playerGroup =
-        players[currentPlayer].group;
-
-
-    let ownBallPocketed = false;
-
-
-    if (playerGroup) {
-
-        ownBallPocketed =
-            shotPocketed.some(
-                ball =>
-                    ball.type === playerGroup
-            );
-
-    } else {
-
-        /*
-           Before groups are assigned,
-           allow continuation.
-        */
-
-        ownBallPocketed = true;
-
-    }
-
-
-    /*
-       Wrong group
-    */
-
-    if (!ownBallPocketed) {
-
-        statusText.textContent =
-            "Wrong ball pocketed — turn changes.";
-
-        switchTurn();
-
-        return;
-
-    }
-
-
-    /*
-       Correct ball pocketed
-
-       PLAYER CONTINUES
-    */
-
-    statusText.textContent =
-        `${players[currentPlayer].name} continues!`;
-
-    updatePlayerUI();
-
-
-    /*
-       Reset shot state
-       BUT DO NOT SWITCH TURN
-    */
-
-    shotPocketed = [];
-
-    shotHadContact = false;
-
-    firstContactBall = null;
-
-
-    /*
-       AI continues automatically
-    */
-
-    if (
-        gameMode === "single" &&
-        currentPlayer === 1
-    ) {
-
-        clearTimeout(aiTimer);
-
-        aiTimer =
-            setTimeout(
-                aiTurn,
-                650
-            );
-
-    }
-
-}
-
-
-/* =========================================================
-   ASSIGN GROUPS
-========================================================= */
-
-function assignGroups() {
-
-    if (
-        players[0].group !== null ||
-        players[1].group !== null
-    ) {
-
-        return;
-
-    }
-
-
-    /*
-       Find first solid/stripe pocketed
-    */
-
-    const firstGroupBall =
-        shotPocketed.find(
-            ball =>
-                ball.type === "solid" ||
-                ball.type === "stripe"
-        );
-
-
-    if (!firstGroupBall)
-        return;
-
-
-    const group =
-        firstGroupBall.type;
-
-
-    const other =
-        group === "solid"
-            ? "stripe"
-            : "solid";
-
-
-    players[currentPlayer].group =
-        group;
-
-
-    players[
-        currentPlayer === 0 ? 1 : 0
-    ].group =
-        other;
-
-
-    updatePlayerUI();
-
-
-    statusText.textContent =
-        `${players[currentPlayer].name} is ${group === "solid" ? "SOLIDS" : "STRIPES"}.`;
-
-}
-
-
-/* =========================================================
-   8 BALL
-========================================================= */
-
-function handleEightBall() {
-
-    const player =
-        players[currentPlayer];
-
-
-    /*
-       Player must clear
-       their group first.
-    */
-
-    if (player.group) {
-
-        const remaining =
-            countRemaining(
-                player.group
+            shotPocketed.push(
+                ball
             );
 
 
-        if (remaining > 0) {
-
-            const opponent =
-                players[
-                    currentPlayer === 0
-                        ? 1
-                        : 0
-                ];
-
-
-            endGame(
-                opponent,
-
-                `${player.name} pocketed the 8-ball too early.`
-            );
-
-
-            return;
-
-        }
-
-    }
-
-
-    /*
-       Legal 8-ball
-    */
-
-    endGame(
-        player,
-
-        `${player.name} legally pocketed the 8-ball!`
-    );
-
-}
-
-
-/* =========================================================
-   COUNT REMAINING
-========================================================= */
-
-function countRemaining(group) {
-
-    if (!group)
-        return 0;
-
-
-    return balls.filter(
-        ball =>
-            ball.active &&
-            ball.type === group
-    ).length;
-
-}
-
-
-/* =========================================================
-   RESET CUE
-========================================================= */
-
-function resetCueBall() {
-
-    const cue =
-        balls.find(
-            ball =>
+            if (
                 ball.type === "cue"
-        );
+            ) {
+
+                shotCueBallPocketed =
+                    true;
+
+                scratch = true;
+
+            }
 
 
-    if (!cue)
-        return;
+            if (
+                ball.type === "eight"
+            ) {
+
+                eightBallPocketed =
+                    true;
+
+            }
 
 
-    cue.active = true;
+            break;
 
-    cue.x = 245;
-
-    cue.y =
-        TABLE.height / 2;
-
-    cue.vx = 0;
-    cue.vy = 0;
-
-}
-
-
-/* =========================================================
-   TURN
-========================================================= */
-
-function switchTurn() {
-
-    currentPlayer =
-        currentPlayer === 0
-            ? 1
-            : 0;
-
-
-    shotPocketed = [];
-
-    shotHadContact = false;
-
-    firstContactBall = null;
-
-
-    updatePlayerUI();
-
-
-    /*
-       AI turn
-    */
-
-    if (
-        gameMode === "single" &&
-        currentPlayer === 1
-    ) {
-
-        statusText.textContent =
-            "Royal AI is thinking...";
-
-
-        clearTimeout(aiTimer);
-
-
-        aiTimer =
-            setTimeout(
-                aiTurn,
-                700
-            );
-
-    } else {
-
-        statusText.textContent =
-            `${players[currentPlayer].name}, your turn.`;
+        }
 
     }
 
@@ -1475,67 +1983,23 @@ function switchTurn() {
 
 
 /* =========================================================
-   PLAYER UI
+   POINTER → TABLE
 ========================================================= */
 
-function updatePlayerUI() {
-
-    if (!players.length)
-        return;
-
-
-    playerName1.textContent =
-        players[0].name;
-
-    playerName2.textContent =
-        players[1].name;
-
-
-    playerScore1.textContent =
-        players[0].score;
-
-    playerScore2.textContent =
-        players[1].score;
-
-
-    playerGroup1.textContent =
-        players[0].group
-            ? players[0].group.toUpperCase()
-            : "NOT ASSIGNED";
-
-
-    playerGroup2.textContent =
-        players[1].group
-            ? players[1].group.toUpperCase()
-            : "NOT ASSIGNED";
-
-
-    playerCard1.classList.toggle(
-        "active",
-        currentPlayer === 0
-    );
-
-
-    playerCard2.classList.toggle(
-        "active",
-        currentPlayer === 1
-    );
-
-
-    turnText.textContent =
-        `${players[currentPlayer].name.toUpperCase()}'S TURN`;
-
-}
-
-
-/* =========================================================
-   POINTER
-========================================================= */
-
-function getPointerPosition(event) {
+function pointerToTable(event) {
 
     const rect =
         canvas.getBoundingClientRect();
+
+
+    const scaleX =
+        TABLE.width /
+        rect.width;
+
+
+    const scaleY =
+        TABLE.height /
+        rect.height;
 
 
     let clientX;
@@ -1553,7 +2017,9 @@ function getPointerPosition(event) {
         clientY =
             event.touches[0].clientY;
 
-    } else {
+    }
+
+    else {
 
         clientX =
             event.clientX;
@@ -1567,14 +2033,18 @@ function getPointerPosition(event) {
     return {
 
         x:
-            (clientX - rect.left) *
-            TABLE.width /
-            rect.width,
+            (
+                clientX -
+                rect.left
+            ) *
+            scaleX,
 
         y:
-            (clientY - rect.top) *
-            TABLE.height /
-            rect.height
+            (
+                clientY -
+                rect.top
+            ) *
+            scaleY
 
     };
 
@@ -1582,165 +2052,314 @@ function getPointerPosition(event) {
 
 
 /* =========================================================
-   START AIM
+   POINTER DOWN
 ========================================================= */
 
-function startAim(event) {
+function pointerDown(event) {
 
-    if (!gameRunning)
+    if (!gameRunning) {
         return;
+    }
 
 
-    if (shotInProgress)
+    if (shotInProgress) {
         return;
+    }
+
+
+    if (!isLocalTurn()) {
+        return;
+    }
+
+
+    const cue =
+        balls.find(
+            ball =>
+                ball.type === "cue" &&
+                ball.active
+        );
+
+
+    if (!cue) {
+        return;
+    }
+
+
+    const point =
+        pointerToTable(event);
+
+
+    const distance =
+        Math.hypot(
+            point.x - cue.x,
+            point.y - cue.y
+        );
 
 
     if (
-        gameMode === "single" &&
-        currentPlayer === 1
-    )
-        return;
-
-
-    const cue =
-        balls.find(
-            ball =>
-                ball.type === "cue" &&
-                ball.active
-        );
-
-
-    if (!cue)
-        return;
-
-
-    const pos =
-        getPointerPosition(event);
-
-
-    const distance =
-        Math.hypot(
-            pos.x - cue.x,
-            pos.y - cue.y
-        );
-
-
-    /*
-       User must start
-       near cue ball.
-    */
-
-    if (distance > 110)
-        return;
-
-
-    aiming = true;
-
-    mouseX = pos.x;
-    mouseY = pos.y;
-
-
-    event.preventDefault();
-
-}
-
-
-/* =========================================================
-   MOVE AIM
-========================================================= */
-
-function moveAim(event) {
-
-    if (!aiming)
-        return;
-
-
-    const pos =
-        getPointerPosition(event);
-
-
-    mouseX = pos.x;
-    mouseY = pos.y;
-
-
-    const cue =
-        balls.find(
-            ball =>
-                ball.type === "cue" &&
-                ball.active
-        );
-
-
-    if (!cue)
-        return;
-
-
-    const distance =
-        Math.hypot(
-            cue.x - mouseX,
-            cue.y - mouseY
-        );
-
-
-    /*
-       Power curve
-
-       Small movement = light shot
-       Large movement = powerful shot
-    */
-
-    power =
-        Math.min(
-            100,
-            Math.pow(
-                distance / 2.2,
-                0.9
-            )
-        );
-
-
-    powerFill.style.width =
-        `${power}%`;
-
-
-    powerText.textContent =
-        `${Math.round(power)}%`;
-
-
-    event.preventDefault();
-
-}
-
-
-/* =========================================================
-   RELEASE AIM
-========================================================= */
-
-function releaseAim(event) {
-
-    if (!aiming)
-        return;
-
-
-    aiming = false;
-
-
-    if (power < 2) {
-
-        power = 0;
-
-        powerFill.style.width = "0%";
-        powerText.textContent = "0%";
+        distance >
+        cue.radius * 4
+    ) {
 
         return;
 
     }
 
 
-    shoot();
+    event.preventDefault();
+
+
+    aiming = true;
+
+
+    aimStartX =
+        cue.x;
+
+    aimStartY =
+        cue.y;
+
+
+    pointerX =
+        point.x;
+
+    pointerY =
+        point.y;
+
+
+    updatePower();
+
+}
+
+
+/* =========================================================
+   POINTER MOVE
+========================================================= */
+
+function pointerMove(event) {
+
+    if (!aiming) {
+        return;
+    }
+
+
+    const point =
+        pointerToTable(event);
+
+
+    pointerX =
+        point.x;
+
+    pointerY =
+        point.y;
+
+
+    updatePower();
 
 
     event.preventDefault();
+
+}
+
+
+/* =========================================================
+   POINTER UP
+========================================================= */
+
+function pointerUp(event) {
+
+    if (!aiming) {
+        return;
+    }
+
+
+    aiming = false;
+
+
+    const cue =
+        balls.find(
+            ball =>
+                ball.type === "cue" &&
+                ball.active
+        );
+
+
+    if (!cue) {
+        return;
+    }
+
+
+    const dx =
+        aimStartX -
+        pointerX;
+
+
+    const dy =
+        aimStartY -
+        pointerY;
+
+
+    const distance =
+        Math.hypot(
+            dx,
+            dy
+        );
+
+
+    if (distance < 8) {
+
+        power = 0;
+
+        updatePowerUI();
+
+        return;
+
+    }
+
+
+    shoot(
+        dx,
+        dy,
+        power,
+        false
+    );
+
+
+    event.preventDefault();
+
+}
+
+
+/* =========================================================
+   POWER
+========================================================= */
+
+function updatePower() {
+
+    const dx =
+        aimStartX -
+        pointerX;
+
+
+    const dy =
+        aimStartY -
+        pointerY;
+
+
+    const distance =
+        Math.hypot(
+            dx,
+            dy
+        );
+
+
+    power =
+        Math.min(
+            distance / 180,
+            1
+        );
+
+
+    updatePowerUI();
+
+}
+
+
+function updatePowerUI() {
+
+    const percent =
+        Math.round(
+            power * 100
+        );
+
+
+    if (powerFill) {
+
+        powerFill.style.width =
+            `${percent}%`;
+
+    }
+
+
+    if (powerText) {
+
+        powerText.textContent =
+            `${percent}%`;
+
+    }
+
+}
+
+
+/* =========================================================
+   POINTER EVENTS
+========================================================= */
+
+if (canvas) {
+
+    canvas.addEventListener(
+        "mousedown",
+        pointerDown
+    );
+
+
+    canvas.addEventListener(
+        "touchstart",
+        pointerDown,
+        {
+            passive: false
+        }
+    );
+
+}
+
+
+window.addEventListener(
+    "mousemove",
+    pointerMove
+);
+
+
+window.addEventListener(
+    "mouseup",
+    pointerUp
+);
+
+
+window.addEventListener(
+    "touchmove",
+    pointerMove,
+    {
+        passive: false
+    }
+);
+
+
+window.addEventListener(
+    "touchend",
+    pointerUp,
+    {
+        passive: false
+    }
+);
+
+
+/* =========================================================
+   LOCAL TURN
+========================================================= */
+
+function isLocalTurn() {
+
+    if (gameMode !== "online") {
+
+        return true;
+
+    }
+
+
+    return (
+        onlinePlayer ===
+        currentPlayer
+    );
 
 }
 
@@ -1749,7 +2368,17 @@ function releaseAim(event) {
    SHOOT
 ========================================================= */
 
-function shoot() {
+function shoot(
+    dx,
+    dy,
+    shotPower,
+    remote = false
+) {
+
+    if (shotInProgress) {
+        return;
+    }
+
 
     const cue =
         balls.find(
@@ -1759,23 +2388,21 @@ function shoot() {
         );
 
 
-    if (!cue)
+    if (!cue) {
         return;
-
-
-    const dx =
-        cue.x - mouseX;
-
-    const dy =
-        cue.y - mouseY;
+    }
 
 
     const length =
-        Math.hypot(dx, dy);
+        Math.hypot(
+            dx,
+            dy
+        );
 
 
-    if (!length)
+    if (length < 0.001) {
         return;
+    }
 
 
     const nx =
@@ -1785,22 +2412,9 @@ function shoot() {
         dy / length;
 
 
-    /*
-       Smooth realistic power
-
-       Very light:
-       2.0
-
-       Full:
-       around 11
-    */
-
     const speed =
-        1.8 +
-        Math.pow(
-            power / 100,
-            0.75
-        ) * 10.5;
+        3 +
+        shotPower * 12;
 
 
     cue.vx =
@@ -1812,6 +2426,7 @@ function shoot() {
 
     shotInProgress = true;
 
+
     shotPocketed = [];
 
     shotCueBallPocketed = false;
@@ -1820,663 +2435,402 @@ function shoot() {
 
     firstContactBall = null;
 
+    scratch = false;
 
-    power = 0;
-
-    powerFill.style.width = "0%";
-    powerText.textContent = "0%";
+    eightBallPocketed = false;
 
 
-    statusText.textContent =
-        "Shot in progress...";
+    if (statusText) {
 
-}
+        statusText.textContent =
+            "Balls are moving...";
 
-
-/* =========================================================
-   MOUSE
-========================================================= */
-
-canvas.addEventListener(
-    "mousedown",
-    startAim
-);
-
-
-window.addEventListener(
-    "mousemove",
-    moveAim
-);
-
-
-window.addEventListener(
-    "mouseup",
-    releaseAim
-);
-
-
-/* =========================================================
-   TOUCH
-========================================================= */
-
-canvas.addEventListener(
-    "touchstart",
-    startAim,
-    {
-        passive: false
     }
-);
 
 
-canvas.addEventListener(
-    "touchmove",
-    moveAim,
-    {
-        passive: false
-    }
-);
+    /* SEND TO SERVER */
 
+    if (
+        gameMode === "online" &&
+        !remote &&
+        socket &&
+        socket.connected
+    ) {
 
-window.addEventListener(
-    "touchend",
-    releaseAim,
-    {
-        passive: false
-    }
-);
+        socket.emit(
+            "shot",
+            {
+                room: onlineRoom,
 
+                player: onlinePlayer,
 
-/* =========================================================
-   DRAW
-========================================================= */
+                dx: dx,
 
-function draw() {
+                dy: dy,
 
-    ctx.clearRect(
-        0,
-        0,
-        TABLE.width,
-        TABLE.height
-    );
+                power: shotPower
 
-
-    drawTable();
-
-    drawPockets();
-
-    drawBalls();
-
-    drawAim();
-
-}
-
-
-/* =========================================================
-   TABLE
-========================================================= */
-
-function drawTable() {
-
-    /*
-       Wood
-    */
-
-    const wood =
-        ctx.createLinearGradient(
-            0,
-            0,
-            TABLE.width,
-            TABLE.height
+            }
         );
 
-
-    wood.addColorStop(
-        0,
-        "#2c1005"
-    );
-
-    wood.addColorStop(
-        0.5,
-        "#a05c29"
-    );
-
-    wood.addColorStop(
-        1,
-        "#241006"
-    );
-
-
-    ctx.fillStyle = wood;
-
-
-    roundRect(
-        ctx,
-        0,
-        0,
-        TABLE.width,
-        TABLE.height,
-        20
-    );
-
-
-    ctx.fill();
-
-
-    /*
-       Cloth
-    */
-
-    const cloth =
-        ctx.createLinearGradient(
-            0,
-            40,
-            0,
-            TABLE.height - 40
-        );
-
-
-    cloth.addColorStop(
-        0,
-        "#08734d"
-    );
-
-    cloth.addColorStop(
-        0.5,
-        "#075f40"
-    );
-
-    cloth.addColorStop(
-        1,
-        "#064a32"
-    );
-
-
-    ctx.fillStyle = cloth;
-
-
-    roundRect(
-        ctx,
-        TABLE.cushion,
-        TABLE.cushion,
-        TABLE.width -
-            TABLE.cushion * 2,
-        TABLE.height -
-            TABLE.cushion * 2,
-        6
-    );
-
-
-    ctx.fill();
-
-
-    /*
-       Inner line
-    */
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.08)";
-
-    ctx.lineWidth = 2;
-
-
-    ctx.strokeRect(
-        TABLE.cushion + 8,
-        TABLE.cushion + 8,
-        TABLE.width -
-            TABLE.cushion * 2 -
-            16,
-        TABLE.height -
-            TABLE.cushion * 2 -
-            16
-    );
+    }
 
 }
 
 
 /* =========================================================
-   POCKET DRAW
+   FINISH SHOT
 ========================================================= */
 
-function drawPockets() {
+function finishShot() {
 
-    for (const pocket of pockets) {
+    shotInProgress = false;
 
-        const gradient =
-            ctx.createRadialGradient(
-                pocket.x,
-                pocket.y,
-                2,
-                pocket.x,
-                pocket.y,
-                TABLE.pocketRadius
+
+    const player =
+        players[currentPlayer];
+
+
+    let continueTurn = false;
+
+
+    /* SCRATCH */
+
+    if (shotCueBallPocketed) {
+
+        if (statusText) {
+
+            statusText.textContent =
+                "Scratch! Cue ball is returned.";
+
+        }
+
+
+        respawnCueBall();
+
+    }
+
+
+    /* 8 BALL */
+
+    if (eightBallPocketed) {
+
+        const ownRemaining =
+            countOwnRemaining(
+                currentPlayer
             );
 
 
-        gradient.addColorStop(
-            0,
-            "#000"
-        );
+        if (
+            ownRemaining === 0 &&
+            !scratch
+        ) {
 
-        gradient.addColorStop(
-            0.65,
-            "#010101"
-        );
-
-        gradient.addColorStop(
-            1,
-            "#42200c"
-        );
+            const message =
+                `${player.name} legally pocketed the 8-ball.`;
 
 
-        ctx.beginPath();
+            showResult(
+                currentPlayer,
+                message
+            );
 
 
-        ctx.arc(
-            pocket.x,
-            pocket.y,
-            TABLE.pocketRadius,
-            0,
-            Math.PI * 2
-        );
+            sendGameOver(
+                currentPlayer,
+                `${player.name} wins!`
+            );
 
 
-        ctx.fillStyle =
-            gradient;
+            sendState();
 
-        ctx.fill();
+            return;
 
-    }
-
-}
+        }
 
 
-/* =========================================================
-   BALL DRAW
-========================================================= */
-
-function drawBalls() {
-
-    for (const ball of balls) {
-
-        if (!ball.active)
-            continue;
+        const other =
+            currentPlayer === 0
+                ? 1
+                : 0;
 
 
-        drawBall(ball);
-
-    }
-
-}
+        const message =
+            `${player.name} pocketed the 8-ball too early.`;
 
 
-/* =========================================================
-   DRAW BALL
-========================================================= */
-
-function drawBall(ball) {
-
-    const r =
-        ball.radius;
-
-
-    /*
-       Shadow
-    */
-
-    ctx.beginPath();
-
-    ctx.arc(
-        ball.x + 2,
-        ball.y + 3,
-        r,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.fillStyle =
-        "rgba(0,0,0,.35)";
-
-    ctx.fill();
-
-
-    /*
-       Color
-    */
-
-    let color = "#ffffff";
-
-
-    if (ball.type === "solid") {
-
-        color =
-            solidColors[ball.number];
-
-    }
-
-
-    if (ball.type === "stripe") {
-
-        color =
-            stripeColors[ball.number];
-
-    }
-
-
-    if (ball.type === "eight") {
-
-        color =
-            "#050505";
-
-    }
-
-
-    /*
-       Ball gradient
-    */
-
-    const gradient =
-        ctx.createRadialGradient(
-            ball.x - r * .4,
-            ball.y - r * .4,
-            1,
-            ball.x,
-            ball.y,
-            r
+        showResult(
+            other,
+            message
         );
 
 
-    gradient.addColorStop(
-        0,
-        "#ffffff"
-    );
-
-    gradient.addColorStop(
-        0.18,
-        color
-    );
-
-    gradient.addColorStop(
-        1,
-        darkenColor(color)
-    );
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-        ball.x,
-        ball.y,
-        r,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.fillStyle =
-        gradient;
-
-    ctx.fill();
-
-
-    /*
-       Stripe
-    */
-
-    if (ball.type === "stripe") {
-
-        ctx.save();
-
-
-        ctx.beginPath();
-
-        ctx.arc(
-            ball.x,
-            ball.y,
-            r,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.clip();
-
-
-        ctx.fillStyle =
-            "#f4f4f4";
-
-
-        ctx.fillRect(
-            ball.x - r,
-            ball.y - r * .36,
-            r * 2,
-            r * .72
+        sendGameOver(
+            other,
+            `${players[other].name} wins!`
         );
 
 
-        ctx.restore();
+        sendState();
 
-    }
-
-
-    /*
-       Number
-    */
-
-    if (ball.type !== "cue") {
-
-        ctx.beginPath();
-
-        ctx.arc(
-            ball.x,
-            ball.y,
-            r * .39,
-            0,
-            Math.PI * 2
-        );
-
-
-        ctx.fillStyle =
-            "#ffffff";
-
-        ctx.fill();
-
-
-        ctx.fillStyle =
-            "#111111";
-
-
-        ctx.font =
-            `bold ${Math.max(
-                7,
-                r * .7
-            )}px Arial`;
-
-
-        ctx.textAlign =
-            "center";
-
-        ctx.textBaseline =
-            "middle";
-
-
-        ctx.fillText(
-            ball.number,
-            ball.x,
-            ball.y
-        );
-
-    }
-
-
-    /*
-       Highlight
-    */
-
-    ctx.beginPath();
-
-    ctx.arc(
-        ball.x - r * .35,
-        ball.y - r * .35,
-        r * .18,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.fillStyle =
-        "rgba(255,255,255,.65)";
-
-    ctx.fill();
-
-}
-
-
-/* =========================================================
-   AIM GUIDE
-========================================================= */
-
-function drawAim() {
-
-    if (!aiming)
         return;
 
+    }
 
-    const cue =
+
+    /* GROUP ASSIGNMENT */
+
+    if (
+        player.group === null
+    ) {
+
+        const firstNormal =
+            shotPocketed.find(
+                ball =>
+                    ball.type === "solid" ||
+                    ball.type === "stripe"
+            );
+
+
+        if (firstNormal) {
+
+            player.group =
+                firstNormal.type;
+
+
+            const other =
+                currentPlayer === 0
+                    ? 1
+                    : 0;
+
+
+            players[other].group =
+                firstNormal.type === "solid"
+                    ? "stripe"
+                    : "solid";
+
+
+            if (statusText) {
+
+                statusText.textContent =
+                    `${player.name} is ${player.group}s.`;
+
+            }
+
+        }
+
+    }
+
+
+    /* SCORE */
+
+    for (
+        const ball of shotPocketed
+    ) {
+
+        if (
+            ball.type !== "cue" &&
+            ball.type !== "eight"
+        ) {
+
+            if (
+                ball.type ===
+                player.group
+            ) {
+
+                player.score++;
+
+                continueTurn = true;
+
+            }
+
+        }
+
+    }
+
+
+    updatePlayerUI();
+
+
+    if (!continueTurn) {
+
+        switchTurn();
+
+    }
+
+    else {
+
+        if (statusText) {
+
+            statusText.textContent =
+                `${player.name} continues.`;
+
+        }
+
+    }
+
+
+    sendState();
+
+
+    /* AI */
+
+    if (
+        gameMode === "single" &&
+        currentPlayer === 1
+    ) {
+
+        clearTimeout(aiTimer);
+
+
+        aiTimer =
+            setTimeout(
+                aiTurn,
+                900
+            );
+
+    }
+
+}
+
+
+/* =========================================================
+   COUNT REMAINING
+========================================================= */
+
+function countOwnRemaining(
+    playerIndex
+) {
+
+    const group =
+        players[playerIndex].group;
+
+
+    if (!group) {
+
+        return balls.filter(
+            ball =>
+                ball.active &&
+                ball.type !== "cue" &&
+                ball.type !== "eight"
+        ).length;
+
+    }
+
+
+    return balls.filter(
+        ball =>
+            ball.active &&
+            ball.type === group
+    ).length;
+
+}
+
+
+/* =========================================================
+   RESPAWN CUE BALL
+========================================================= */
+
+function respawnCueBall() {
+
+    let cue =
         balls.find(
             ball =>
-                ball.type === "cue" &&
-                ball.active
+                ball.type === "cue"
         );
 
 
-    if (!cue)
-        return;
+    if (!cue) {
+
+        cue = {
+
+            number: 0,
+
+            type: "cue",
+
+            x: 245,
+
+            y: TABLE.height / 2,
+
+            vx: 0,
+
+            vy: 0,
+
+            radius:
+                TABLE.ballRadius,
+
+            active: true
+
+        };
 
 
-    const dx =
-        cue.x - mouseX;
+        balls.push(cue);
 
-    const dy =
-        cue.y - mouseY;
+    }
 
 
-    const length =
-        Math.hypot(dx, dy);
+    cue.active = true;
+
+    cue.x = 245;
+
+    cue.y =
+        TABLE.height / 2;
+
+    cue.vx = 0;
+    cue.vy = 0;
+
+}
 
 
-    if (!length)
-        return;
+/* =========================================================
+   SWITCH TURN
+========================================================= */
+
+function switchTurn() {
+
+    currentPlayer =
+        currentPlayer === 0
+            ? 1
+            : 0;
 
 
-    const nx =
-        dx / length;
-
-    const ny =
-        dy / length;
+    updatePlayerUI();
 
 
-    /*
-       Guide line
-    */
+    if (
+        gameMode === "online" &&
+        socket &&
+        socket.connected
+    ) {
 
-    ctx.beginPath();
+        socket.emit(
+            "turn_changed",
+            {
+                room: onlineRoom,
 
-    ctx.moveTo(
-        cue.x,
-        cue.y
-    );
-
-
-    ctx.lineTo(
-        cue.x + nx * 350,
-        cue.y + ny * 350
-    );
-
-
-    ctx.setLineDash([
-        7,
-        7
-    ]);
-
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.55)";
-
-    ctx.lineWidth = 1;
-
-
-    ctx.stroke();
-
-
-    ctx.setLineDash([]);
-
-
-    /*
-       Cue stick
-    */
-
-    const cueLength =
-        130 +
-        power * 1.3;
-
-
-    const startX =
-        cue.x -
-        nx * cueLength;
-
-
-    const startY =
-        cue.y -
-        ny * cueLength;
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-        startX,
-        startY
-    );
-
-
-    ctx.lineTo(
-        cue.x - nx * 14,
-        cue.y - ny * 14
-    );
-
-
-    const stick =
-        ctx.createLinearGradient(
-            startX,
-            startY,
-            cue.x,
-            cue.y
+                player:
+                    currentPlayer
+            }
         );
 
-
-    stick.addColorStop(
-        0,
-        "#3b1d0b"
-    );
-
-    stick.addColorStop(
-        0.65,
-        "#d9b979"
-    );
-
-    stick.addColorStop(
-        1,
-        "#fff7df"
-    );
+    }
 
 
-    ctx.strokeStyle =
-        stick;
+    if (
+        gameMode === "single" &&
+        currentPlayer === 1
+    ) {
 
-    ctx.lineWidth = 5;
+        clearTimeout(aiTimer);
 
 
-    ctx.stroke();
+        aiTimer =
+            setTimeout(
+                aiTurn,
+                900
+            );
+
+    }
 
 }
 
@@ -2487,19 +2841,24 @@ function drawAim() {
 
 function aiTurn() {
 
-    if (!gameRunning)
+    if (!gameRunning) {
         return;
+    }
 
 
     if (
         gameMode !== "single" ||
         currentPlayer !== 1
-    )
+    ) {
+
         return;
 
+    }
 
-    if (shotInProgress)
+
+    if (shotInProgress) {
         return;
+    }
 
 
     const cue =
@@ -2510,13 +2869,10 @@ function aiTurn() {
         );
 
 
-    if (!cue)
+    if (!cue) {
         return;
+    }
 
-
-    /*
-       Find AI targets
-    */
 
     let targets =
         balls.filter(
@@ -2526,10 +2882,6 @@ function aiTurn() {
                 ball.type !== "eight"
         );
 
-
-    /*
-       Own group
-    */
 
     if (players[1].group) {
 
@@ -2545,12 +2897,9 @@ function aiTurn() {
 
             targets = own;
 
-        } else {
+        }
 
-            /*
-               All own balls cleared.
-               Go for 8.
-            */
+        else {
 
             const eight =
                 balls.find(
@@ -2571,41 +2920,20 @@ function aiTurn() {
     }
 
 
-    /*
-       If no group assigned,
-       choose normal ball.
-    */
-
     if (!targets.length) {
-
-        const normal =
-            balls.find(
-                ball =>
-                    ball.active &&
-                    ball.type !== "cue"
-            );
-
-
-        if (normal)
-            targets = [normal];
-
+        return;
     }
 
 
-    if (!targets.length)
-        return;
-
-
-    /*
-       Find best target
-    */
-
     let target = null;
 
-    let bestScore = Infinity;
+    let bestScore =
+        Infinity;
 
 
-    for (const ball of targets) {
+    for (
+        const ball of targets
+    ) {
 
         const distance =
             Math.hypot(
@@ -2614,16 +2942,13 @@ function aiTurn() {
             );
 
 
-        /*
-           Prefer balls that
-           are closer to pockets.
-        */
-
         let pocketDistance =
             Infinity;
 
 
-        for (const pocket of pockets) {
+        for (
+            const pocket of pockets
+        ) {
 
             const d =
                 Math.hypot(
@@ -2632,11 +2957,11 @@ function aiTurn() {
                 );
 
 
-            if (d < pocketDistance) {
-
-                pocketDistance = d;
-
-            }
+            pocketDistance =
+                Math.min(
+                    pocketDistance,
+                    d
+                );
 
         }
 
@@ -2646,33 +2971,38 @@ function aiTurn() {
             pocketDistance * 0.35;
 
 
-        if (score < bestScore) {
+        if (
+            score <
+            bestScore
+        ) {
 
-            bestScore = score;
+            bestScore =
+                score;
 
-            target = ball;
+            target =
+                ball;
 
         }
 
     }
 
 
-    if (!target)
+    if (!target) {
         return;
+    }
 
-
-    /*
-       Find nearest pocket
-    */
 
     let targetPocket =
         pockets[0];
+
 
     let pocketDistance =
         Infinity;
 
 
-    for (const pocket of pockets) {
+    for (
+        const pocket of pockets
+    ) {
 
         const d =
             Math.hypot(
@@ -2681,7 +3011,10 @@ function aiTurn() {
             );
 
 
-        if (d < pocketDistance) {
+        if (
+            d <
+            pocketDistance
+        ) {
 
             pocketDistance = d;
 
@@ -2692,19 +3025,14 @@ function aiTurn() {
     }
 
 
-    /*
-       Calculate ghost-ball position.
-
-       This makes AI aim toward
-       the pocket rather than simply
-       shooting directly at the ball.
-    */
-
     const pdx =
-        targetPocket.x - target.x;
+        targetPocket.x -
+        target.x;
+
 
     const pdy =
-        targetPocket.y - target.y;
+        targetPocket.y -
+        target.y;
 
 
     const pocketLength =
@@ -2714,48 +3042,50 @@ function aiTurn() {
         );
 
 
+    if (pocketLength === 0) {
+        return;
+    }
+
+
     const pocketNX =
-        pdx / pocketLength;
+        pdx /
+        pocketLength;
+
 
     const pocketNY =
-        pdy / pocketLength;
+        pdy /
+        pocketLength;
 
-
-    /*
-       Ghost ball is behind target.
-    */
 
     const ghostX =
         target.x -
         pocketNX *
-        (target.radius * 2);
+        target.radius *
+        2;
 
 
     const ghostY =
         target.y -
         pocketNY *
-        (target.radius * 2);
+        target.radius *
+        2;
 
-
-    /*
-       Direction cue -> ghost
-    */
 
     const dx =
-        ghostX - cue.x;
+        ghostX -
+        cue.x;
+
 
     const dy =
-        ghostY - cue.y;
+        ghostY -
+        cue.y;
 
-
-    /*
-       Small AI error
-
-       Makes AI feel human.
-    */
 
     const error =
-        (Math.random() - 0.5) *
+        (
+            Math.random() -
+            0.5
+        ) *
         0.10;
 
 
@@ -2763,14 +3093,9 @@ function aiTurn() {
         Math.atan2(
             dy,
             dx
-        ) + error;
+        ) +
+        error;
 
-
-    /*
-       AI power
-
-       Longer shot = more power.
-    */
 
     const distance =
         Math.hypot(
@@ -2780,7 +3105,7 @@ function aiTurn() {
 
 
     let speed =
-        5.0 +
+        5 +
         distance * 0.012;
 
 
@@ -2791,38 +3116,880 @@ function aiTurn() {
         );
 
 
-    cue.vx =
-        Math.cos(angle) *
-        speed;
-
-    cue.vy =
-        Math.sin(angle) *
-        speed;
+    const shotDX =
+        Math.cos(angle);
 
 
-    shotInProgress = true;
-
-    shotPocketed = [];
-
-    shotCueBallPocketed = false;
-
-    shotHadContact = false;
-
-    firstContactBall = null;
+    const shotDY =
+        Math.sin(angle);
 
 
-    statusText.textContent =
-        "Royal AI is taking the shot...";
+    const shotPower =
+        Math.min(
+            Math.max(
+                (speed - 3) / 12,
+                0.2
+            ),
+            1
+        );
+
+
+    shoot(
+        shotDX * 180 * shotPower,
+        shotDY * 180 * shotPower,
+        shotPower
+    );
+
+
+    if (statusText) {
+
+        statusText.textContent =
+            "Royal AI is taking the shot...";
+
+    }
 
 }
 
 
 /* =========================================================
-   END GAME
+   PLAYER UI
 ========================================================= */
 
-function endGame(
-    winner,
+function updatePlayerUI() {
+
+    if (!players[currentPlayer]) {
+        return;
+    }
+
+
+    if (playerName1) {
+
+        playerName1.textContent =
+            players[0].name;
+
+    }
+
+
+    if (playerName2) {
+
+        playerName2.textContent =
+            players[1].name;
+
+    }
+
+
+    if (playerScore1) {
+
+        playerScore1.textContent =
+            players[0].score;
+
+    }
+
+
+    if (playerScore2) {
+
+        playerScore2.textContent =
+            players[1].score;
+
+    }
+
+
+    if (playerGroup1) {
+
+        playerGroup1.textContent =
+            players[0].group
+                ? players[0].group.toUpperCase()
+                : "NOT ASSIGNED";
+
+    }
+
+
+    if (playerGroup2) {
+
+        playerGroup2.textContent =
+            players[1].group
+                ? players[1].group.toUpperCase()
+                : "NOT ASSIGNED";
+
+    }
+
+
+    if (playerCard1) {
+
+        playerCard1.classList.toggle(
+            "active",
+            currentPlayer === 0
+        );
+
+    }
+
+
+    if (playerCard2) {
+
+        playerCard2.classList.toggle(
+            "active",
+            currentPlayer === 1
+        );
+
+    }
+
+
+    if (turnText) {
+
+        turnText.textContent =
+            `${players[currentPlayer].name.toUpperCase()}'S TURN`;
+
+    }
+
+
+    if (gameMode === "online") {
+
+        if (
+            currentPlayer ===
+            onlinePlayer
+        ) {
+
+            if (statusText) {
+
+                statusText.textContent =
+                    "Your turn — drag from the cue ball.";
+
+            }
+
+        }
+
+        else {
+
+            if (statusText) {
+
+                statusText.textContent =
+                    "Opponent's turn...";
+
+            }
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   DRAW
+========================================================= */
+
+function draw() {
+
+    if (!ctx) return;
+
+
+    ctx.clearRect(
+        0,
+        0,
+        TABLE.width,
+        TABLE.height
+    );
+
+
+    drawTable();
+
+    drawPockets();
+
+    drawBalls();
+
+
+    if (
+        aiming &&
+        !shotInProgress
+    ) {
+
+        drawAim();
+
+    }
+
+}
+
+
+/* =========================================================
+   TABLE DRAW
+========================================================= */
+
+function drawTable() {
+
+    const wood =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            TABLE.height
+        );
+
+
+    wood.addColorStop(
+        0,
+        "#4b2b14"
+    );
+
+
+    wood.addColorStop(
+        0.5,
+        "#241308"
+    );
+
+
+    wood.addColorStop(
+        1,
+        "#4b2b14"
+    );
+
+
+    ctx.fillStyle =
+        wood;
+
+
+    roundRect(
+        ctx,
+        0,
+        0,
+        TABLE.width,
+        TABLE.height,
+        22
+    );
+
+
+    ctx.fill();
+
+
+    const clothX =
+        TABLE.cushion;
+
+
+    const clothY =
+        TABLE.cushion;
+
+
+    const clothW =
+        TABLE.width -
+        TABLE.cushion * 2;
+
+
+    const clothH =
+        TABLE.height -
+        TABLE.cushion * 2;
+
+
+    const cloth =
+        ctx.createLinearGradient(
+            0,
+            clothY,
+            0,
+            clothY + clothH
+        );
+
+
+    cloth.addColorStop(
+        0,
+        "#087442"
+    );
+
+
+    cloth.addColorStop(
+        0.5,
+        "#075d36"
+    );
+
+
+    cloth.addColorStop(
+        1,
+        "#06482b"
+    );
+
+
+    ctx.fillStyle =
+        cloth;
+
+
+    roundRect(
+        ctx,
+        clothX,
+        clothY,
+        clothW,
+        clothH,
+        10
+    );
+
+
+    ctx.fill();
+
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.08)";
+
+
+    ctx.lineWidth = 2;
+
+
+    roundRect(
+        ctx,
+        clothX + 7,
+        clothY + 7,
+        clothW - 14,
+        clothH - 14,
+        7
+    );
+
+
+    ctx.stroke();
+
+}
+
+
+/* =========================================================
+   POCKET DRAW
+========================================================= */
+
+function drawPockets() {
+
+    for (
+        const pocket of pockets
+    ) {
+
+        const gradient =
+            ctx.createRadialGradient(
+                pocket.x,
+                pocket.y,
+                3,
+                pocket.x,
+                pocket.y,
+                TABLE.pocketRadius
+            );
+
+
+        gradient.addColorStop(
+            0,
+            "#000000"
+        );
+
+
+        gradient.addColorStop(
+            0.7,
+            "#020303"
+        );
+
+
+        gradient.addColorStop(
+            1,
+            "#111111"
+        );
+
+
+        ctx.fillStyle =
+            gradient;
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+            pocket.x,
+            pocket.y,
+            TABLE.pocketRadius,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.fill();
+
+
+        ctx.strokeStyle =
+            "rgba(255,255,255,.08)";
+
+
+        ctx.lineWidth = 2;
+
+        ctx.stroke();
+
+    }
+
+}
+
+
+/* =========================================================
+   BALL DRAW
+========================================================= */
+
+function drawBalls() {
+
+    for (
+        const ball of balls
+    ) {
+
+        if (!ball.active) {
+            continue;
+        }
+
+
+        drawBall(ball);
+
+    }
+
+}
+
+
+/* =========================================================
+   DRAW BALL
+========================================================= */
+
+function drawBall(ball) {
+
+    const r =
+        ball.radius;
+
+
+    ctx.save();
+
+
+    /* Shadow */
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+        ball.x + 3,
+        ball.y + 4,
+        r,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        "rgba(0,0,0,.35)";
+
+
+    ctx.fill();
+
+
+    let baseColor =
+        "#ffffff";
+
+
+    if (
+        ball.type === "solid"
+    ) {
+
+        baseColor =
+            solidColors[
+                ball.number
+            ];
+
+    }
+
+
+    else if (
+        ball.type === "stripe"
+    ) {
+
+        baseColor =
+            stripeColors[
+                ball.number
+            ];
+
+    }
+
+
+    else if (
+        ball.type === "eight"
+    ) {
+
+        baseColor =
+            "#050505";
+
+    }
+
+
+    const gradient =
+        ctx.createRadialGradient(
+            ball.x - r * .35,
+            ball.y - r * .4,
+            r * .1,
+            ball.x,
+            ball.y,
+            r
+        );
+
+
+    if (
+        ball.type === "cue"
+    ) {
+
+        gradient.addColorStop(
+            0,
+            "#ffffff"
+        );
+
+
+        gradient.addColorStop(
+            0.7,
+            "#e7e7e7"
+        );
+
+
+        gradient.addColorStop(
+            1,
+            "#9b9b9b"
+        );
+
+    }
+
+
+    else {
+
+        gradient.addColorStop(
+            0,
+            "#ffffff"
+        );
+
+
+        gradient.addColorStop(
+            0.16,
+            baseColor
+        );
+
+
+        gradient.addColorStop(
+            1,
+            "#111111"
+        );
+
+    }
+
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+        ball.x,
+        ball.y,
+        r,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        gradient;
+
+
+    ctx.fill();
+
+
+    /* Stripe */
+
+    if (
+        ball.type === "stripe"
+    ) {
+
+        ctx.save();
+
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            r,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.clip();
+
+
+        ctx.fillStyle =
+            "#eeeeee";
+
+
+        ctx.fillRect(
+            ball.x - r,
+            ball.y - r * .35,
+            r * 2,
+            r * .7
+        );
+
+
+        ctx.restore();
+
+    }
+
+
+    /* Number */
+
+    if (
+        ball.type !== "cue"
+    ) {
+
+        ctx.beginPath();
+
+
+        ctx.arc(
+            ball.x,
+            ball.y,
+            r * .38,
+            0,
+            Math.PI * 2
+        );
+
+
+        ctx.fillStyle =
+            "#ffffff";
+
+
+        ctx.fill();
+
+
+        ctx.fillStyle =
+            "#050505";
+
+
+        ctx.font =
+            `bold ${Math.max(
+                7,
+                r * .65
+            )}px Arial`;
+
+
+        ctx.textAlign =
+            "center";
+
+
+        ctx.textBaseline =
+            "middle";
+
+
+        ctx.fillText(
+            ball.number,
+            ball.x,
+            ball.y + .5
+        );
+
+    }
+
+
+    /* Shine */
+
+    ctx.beginPath();
+
+
+    ctx.arc(
+        ball.x - r * .35,
+        ball.y - r * .4,
+        r * .18,
+        0,
+        Math.PI * 2
+    );
+
+
+    ctx.fillStyle =
+        "rgba(255,255,255,.55)";
+
+
+    ctx.fill();
+
+
+    ctx.restore();
+
+}
+
+
+/* =========================================================
+   AIM
+========================================================= */
+
+function drawAim() {
+
+    const cue =
+        balls.find(
+            ball =>
+                ball.type === "cue" &&
+                ball.active
+        );
+
+
+    if (!cue) {
+        return;
+    }
+
+
+    const dx =
+        aimStartX -
+        pointerX;
+
+
+    const dy =
+        aimStartY -
+        pointerY;
+
+
+    const length =
+        Math.hypot(
+            dx,
+            dy
+        );
+
+
+    if (length < 1) {
+        return;
+    }
+
+
+    const nx =
+        dx / length;
+
+
+    const ny =
+        dy / length;
+
+
+    ctx.save();
+
+
+    ctx.setLineDash(
+        [8, 8]
+    );
+
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.6)";
+
+
+    ctx.lineWidth = 1.5;
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        cue.x,
+        cue.y
+    );
+
+
+    ctx.lineTo(
+        cue.x + nx * 300,
+        cue.y + ny * 300
+    );
+
+
+    ctx.stroke();
+
+
+    ctx.restore();
+
+
+    const stickLength =
+        230;
+
+
+    const startX =
+        cue.x -
+        nx * 25;
+
+
+    const startY =
+        cue.y -
+        ny * 25;
+
+
+    const endX =
+        cue.x -
+        nx *
+        (
+            25 +
+            stickLength *
+            Math.max(
+                power,
+                .15
+            )
+        );
+
+
+    const endY =
+        cue.y -
+        ny *
+        (
+            25 +
+            stickLength *
+            Math.max(
+                power,
+                .15
+            )
+        );
+
+
+    const stick =
+        ctx.createLinearGradient(
+            startX,
+            startY,
+            endX,
+            endY
+        );
+
+
+    stick.addColorStop(
+        0,
+        "#fff7df"
+    );
+
+
+    stick.addColorStop(
+        .65,
+        "#d9b979"
+    );
+
+
+    stick.addColorStop(
+        1,
+        "#3b1d0b"
+    );
+
+
+    ctx.strokeStyle =
+        stick;
+
+
+    ctx.lineWidth = 5;
+
+
+    ctx.beginPath();
+
+
+    ctx.moveTo(
+        startX,
+        startY
+    );
+
+
+    ctx.lineTo(
+        endX,
+        endY
+    );
+
+
+    ctx.stroke();
+
+}
+
+
+/* =========================================================
+   RESULT
+========================================================= */
+
+function showResult(
+    winnerIndex,
     message
 ) {
 
@@ -2830,22 +3997,120 @@ function endGame(
 
     shotInProgress = false;
 
-    aiming = false;
+
+    winner =
+        winnerIndex;
 
 
-    clearTimeout(aiTimer);
+    if (resultTitle) {
+
+        resultTitle.textContent =
+            `${players[winnerIndex].name.toUpperCase()} WINS`;
+
+    }
 
 
-    resultTitle.textContent =
-        `${winner.name.toUpperCase()} WINS`;
+    if (resultMessage) {
+
+        resultMessage.textContent =
+            message;
+
+    }
 
 
-    resultMessage.textContent =
-        message;
+    if (resultModal) {
+
+        resultModal.classList.remove(
+            "hidden"
+        );
+
+    }
+
+}
 
 
-    resultModal.classList.remove(
-        "hidden"
+/* =========================================================
+   GAME OVER
+========================================================= */
+
+function sendGameOver(
+    winnerIndex,
+    message
+) {
+
+    if (
+        gameMode !== "online"
+    ) {
+        return;
+    }
+
+
+    if (
+        !socket ||
+        !socket.connected
+    ) {
+        return;
+    }
+
+
+    socket.emit(
+        "game_over",
+        {
+            room: onlineRoom,
+
+            winner:
+                winnerIndex,
+
+            message:
+                message
+        }
+    );
+
+}
+
+
+/* =========================================================
+   NEW GAME
+========================================================= */
+
+if (restartButton) {
+
+    restartButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                gameMode === "online" &&
+                socket &&
+                socket.connected
+            ) {
+
+                socket.emit(
+                    "restart_game",
+                    {
+                        room:
+                            onlineRoom
+                    }
+                );
+
+                return;
+
+            }
+
+
+            createGame();
+
+            currentPlayer = 0;
+
+            gameRunning = true;
+
+            shotInProgress = false;
+
+            updatePlayerUI();
+
+            startAnimation();
+
+        }
     );
 
 }
@@ -2855,129 +4120,355 @@ function endGame(
    PLAY AGAIN
 ========================================================= */
 
-playAgainButton.addEventListener(
-    "click",
-    () => {
+if (playAgainButton) {
 
-        clearTimeout(aiTimer);
+    playAgainButton.addEventListener(
+        "click",
+        () => {
 
+            if (resultModal) {
 
-        resultModal.classList.add(
-            "hidden"
-        );
+                resultModal.classList.add(
+                    "hidden"
+                );
 
-
-        players[0].group = null;
-        players[1].group = null;
-
-        players[0].score = 0;
-        players[1].score = 0;
+            }
 
 
-        currentPlayer = 0;
+            if (
+                gameMode === "online" &&
+                socket &&
+                socket.connected
+            ) {
 
-        gameRunning = true;
+                socket.emit(
+                    "restart_game",
+                    {
+                        room:
+                            onlineRoom
+                    }
+                );
 
-        shotInProgress = false;
+                return;
 
-        aiming = false;
-
-
-        createGame();
-
-        updatePlayerUI();
-
-        lastTime =
-            performance.now();
-
-
-        startAnimation();
-
-    }
-);
+            }
 
 
-/* =========================================================
-   MENU
-========================================================= */
+            createGame();
 
-menuButton.addEventListener(
-    "click",
-    goBackToMenu
-);
+            currentPlayer = 0;
 
+            gameRunning = true;
 
-backButton.addEventListener(
-    "click",
-    goBackToMenu
-);
+            shotInProgress = false;
 
+            updatePlayerUI();
 
-function goBackToMenu() {
+            startAnimation();
 
-    gameRunning = false;
-
-    shotInProgress = false;
-
-    aiming = false;
-
-
-    clearTimeout(aiTimer);
-
-
-    cancelAnimationFrame(
-        animationFrame
+        }
     );
-
-
-    resultModal.classList.add(
-        "hidden"
-    );
-
-
-    power = 0;
-
-    powerFill.style.width = "0%";
-    powerText.textContent = "0%";
-
-
-    gameScreen.classList.add(
-        "hidden"
-    );
-
-
-    startScreen.classList.remove(
-        "hidden"
-    );
-
-
-    currentPlayer = 0;
 
 }
 
 
 /* =========================================================
-   NEW GAME
+   MAIN MENU
 ========================================================= */
 
-restartButton.addEventListener(
-    "click",
+if (menuButton) {
+
+    menuButton.addEventListener(
+        "click",
+        () => {
+
+            if (resultModal) {
+
+                resultModal.classList.add(
+                    "hidden"
+                );
+
+            }
+
+
+            if (gameScreen) {
+
+                gameScreen.classList.add(
+                    "hidden"
+                );
+
+            }
+
+
+            if (startScreen) {
+
+                startScreen.classList.remove(
+                    "hidden"
+                );
+
+            }
+
+
+            gameRunning = false;
+
+            shotInProgress = false;
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   BACK
+========================================================= */
+
+if (backButton) {
+
+    backButton.addEventListener(
+        "click",
+        () => {
+
+            if (
+                gameMode === "online" &&
+                socket &&
+                socket.connected &&
+                onlineRoom
+            ) {
+
+                socket.emit(
+                    "leave_room",
+                    {
+                        room:
+                            onlineRoom
+                    }
+                );
+
+            }
+
+
+            gameRunning = false;
+
+            shotInProgress = false;
+
+            onlineReady = false;
+
+            onlineRoom = null;
+
+            onlinePlayer = null;
+
+
+            if (gameScreen) {
+
+                gameScreen.classList.add(
+                    "hidden"
+                );
+
+            }
+
+
+            if (startScreen) {
+
+                startScreen.classList.remove(
+                    "hidden"
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   SERIALIZE GAME STATE
+========================================================= */
+
+function getGameState() {
+
+    return {
+
+        balls:
+            balls.map(
+                ball => ({
+
+                    number:
+                        ball.number,
+
+                    type:
+                        ball.type,
+
+                    x:
+                        ball.x,
+
+                    y:
+                        ball.y,
+
+                    vx:
+                        ball.vx,
+
+                    vy:
+                        ball.vy,
+
+                    radius:
+                        ball.radius,
+
+                    active:
+                        ball.active
+
+                })
+            ),
+
+
+        players:
+            players.map(
+                player => ({
+
+                    name:
+                        player.name,
+
+                    group:
+                        player.group,
+
+                    score:
+                        player.score
+
+                })
+            ),
+
+
+        currentPlayer:
+            currentPlayer,
+
+
+        shotInProgress:
+            shotInProgress
+
+    };
+
+}
+
+
+/* =========================================================
+   SEND STATE
+========================================================= */
+
+function sendState() {
+
+    if (
+        gameMode !== "online"
+    ) {
+        return;
+    }
+
+
+    if (
+        !socket ||
+        !socket.connected ||
+        !onlineRoom
+    ) {
+        return;
+    }
+
+
+    socket.emit(
+        "state_update",
+        {
+            room:
+                onlineRoom,
+
+            state:
+                getGameState()
+        }
+    );
+
+}
+
+
+/* =========================================================
+   LOAD REMOTE STATE
+========================================================= */
+
+function loadRemoteState(state) {
+
+    if (!state) {
+        return;
+    }
+
+
+    if (
+        Array.isArray(
+            state.balls
+        )
+    ) {
+
+        balls =
+            state.balls.map(
+                ball => ({
+                    ...ball
+                })
+            );
+
+    }
+
+
+    if (
+        Array.isArray(
+            state.players
+        )
+    ) {
+
+        players =
+            state.players.map(
+                player => ({
+                    ...player
+                })
+            );
+
+    }
+
+
+    if (
+        typeof state.currentPlayer ===
+        "number"
+    ) {
+
+        currentPlayer =
+            state.currentPlayer;
+
+    }
+
+
+    updatePlayerUI();
+
+}
+
+
+/* =========================================================
+   ONLINE PERIODIC SYNC
+========================================================= */
+
+setInterval(
     () => {
 
         if (
-            confirm("Start a new game?")
+            gameMode === "online" &&
+            gameRunning &&
+            !shotInProgress
         ) {
 
-            startGame();
+            sendState();
 
         }
 
-    }
+    },
+    250
 );
 
 
 /* =========================================================
-   ROUNDED RECTANGLE
+   ROUND RECTANGLE
 ========================================================= */
 
 function roundRect(
@@ -2991,97 +4482,70 @@ function roundRect(
 
     context.beginPath();
 
+
     context.moveTo(
         x + radius,
         y
     );
 
-    context.arcTo(
-        x + width,
-        y,
-        x + width,
-        y + height,
-        radius
+
+    context.lineTo(
+        x + width - radius,
+        y
     );
 
-    context.arcTo(
-        x + width,
-        y + height,
-        x,
-        y + height,
-        radius
-    );
 
-    context.arcTo(
-        x,
-        y + height,
-        x,
-        y,
-        radius
-    );
-
-    context.arcTo(
-        x,
-        y,
+    context.quadraticCurveTo(
         x + width,
         y,
-        radius
+        x + width,
+        y + radius
     );
+
+
+    context.lineTo(
+        x + width,
+        y + height - radius
+    );
+
+
+    context.quadraticCurveTo(
+        x + width,
+        y + height,
+        x + width - radius,
+        y + height
+    );
+
+
+    context.lineTo(
+        x + radius,
+        y + height
+    );
+
+
+    context.quadraticCurveTo(
+        x,
+        y + height,
+        x,
+        y + height - radius
+    );
+
+
+    context.lineTo(
+        x,
+        y + radius
+    );
+
+
+    context.quadraticCurveTo(
+        x,
+        y,
+        x + radius,
+        y
+    );
+
 
     context.closePath();
-
-}
-
-
-/* =========================================================
-   DARKEN COLOR
-========================================================= */
-
-function darkenColor(hex) {
-
-    if (
-        !hex ||
-        hex[0] !== "#" ||
-        hex.length !== 7
-    ) {
-
-        return "#111111";
-
-    }
-
-
-    let r =
-        parseInt(
-            hex.substring(1, 3),
-            16
-        );
-
-
-    let g =
-        parseInt(
-            hex.substring(3, 5),
-            16
-        );
-
-
-    let b =
-        parseInt(
-            hex.substring(5, 7),
-            16
-        );
-
-
-    r =
-        Math.floor(r * 0.45);
-
-    g =
-        Math.floor(g * 0.45);
-
-    b =
-        Math.floor(b * 0.45);
-
-
-    return `rgb(${r},${g},${b})`;
 
 }
 
@@ -3092,10 +4556,19 @@ function darkenColor(hex) {
 
 setupCanvas();
 
-singleModeButton.classList.add("selected");
+createPockets();
 
-player2Box.classList.add("hidden");
+updatePlayerUI();
+
+
+if (statusText) {
+
+    statusText.textContent =
+        "Drag from the cue ball to aim and release.";
+
+}
+
 
 console.log(
-    "Royal 8 Ball Premium Physics Engine loaded."
+    "Royal 8 Ball game.js loaded successfully."
 );
