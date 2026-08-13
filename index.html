@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width,
+                   initial-scale=1.0,
+                   maximum-scale=1.0,
+                   user-scalable=no">
+
+    <meta name="theme-color" content="#030907">
+
+    <title>Royal 8 Ball</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- BACKGROUND -->
+    <div class="background-glow glow-one"></div>
+    <div class="background-glow glow-two"></div>
+    <div class="background-glow glow-three"></div>
+
+
+    <!-- ================= MENU ================= -->
+
+    <section id="startScreen" class="screen">
+
+        <div class="menu-container">
+
+            <div class="brand">
+
+                <div class="brand-ball">
+                    <span>8</span>
+                </div>
+
+                <div>
+                    <h1>ROYAL</h1>
+                    <p>8 BALL</p>
+                </div>
+
+            </div>
+
+            <div class="menu-subtitle">
+                THE ULTIMATE POOL EXPERIENCE
+            </div>
+
+
+            <!-- MODES -->
+
+            <div class="mode-container">
+
+                <button id="singleModeButton"
+                        class="mode-card selected">
+
+                    <div class="mode-icon">🤖</div>
+
+                    <div class="mode-content">
+                        <h2>Single Player</h2>
+                        <p>Challenge Royal AI</p>
+                    </div>
+
+                    <div class="mode-check">✓</div>
+
+                </button>
+
+
+                <button id="twoModeButton"
+                        class="mode-card">
+
+                    <div class="mode-icon">👥</div>
+
+                    <div class="mode-content">
+                        <h2>Two Players</h2>
+                        <p>Play on the same device</p>
+                    </div>
+
+                    <div class="mode-check">✓</div>
+
+                </button>
+
+            </div>
+
+
+            <!-- PLAYER NAMES -->
+
+            <div class="players-form">
+
+                <div class="input-group">
+
+                    <label>PLAYER 1</label>
+
+                    <input
+                        type="text"
+                        id="player1Input"
+                        placeholder="Your name"
+                        maxlength="18"
+                        autocomplete="off">
+
+                </div>
+
+
+                <div id="player2Box"
+                     class="input-group hidden">
+
+                    <label>PLAYER 2</label>
+
+                    <input
+                        type="text"
+                        id="player2Input"
+                        placeholder="Player 2"
+                        maxlength="18"
+                        autocomplete="off">
+
+                </div>
+
+            </div>
+
+
+            <!-- START -->
+
+            <button id="startButton"
+                    class="start-button">
+
+                <span>PLAY NOW</span>
+
+                <strong>→</strong>
+
+            </button>
+
+
+            <div class="menu-footer">
+
+                <span>●</span>
+                LOCAL PLAY
+
+                <span>●</span>
+                NO INTERNET REQUIRED
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ================= GAME ================= -->
+
+    <section id="gameScreen"
+             class="game-screen hidden">
+
+
+        <button id="backButton"
+                class="back-button">
+
+            ←
+            <span>BACK</span>
+
+        </button>
+
+
+        <!-- HEADER -->
+
+        <header class="game-header">
+
+            <div class="game-title">
+
+                <div class="mini-ball">
+                    8
+                </div>
+
+                <div>
+
+                    <h2>ROYAL 8 BALL</h2>
+
+                    <span id="modeLabel">
+                        VS ROYAL AI
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <button id="restartButton"
+                    class="new-game-button">
+
+                ↻
+                <span>NEW GAME</span>
+
+            </button>
+
+        </header>
+
+
+        <!-- PLAYERS -->
+
+        <div class="players-bar">
+
+            <div id="playerCard1"
+                 class="player-card active">
+
+                <div class="player-avatar">
+                    P1
+                </div>
+
+                <div class="player-info">
+
+                    <strong id="playerName1">
+                        Player 1
+                    </strong>
+
+                    <span id="playerGroup1">
+                        NOT ASSIGNED
+                    </span>
+
+                </div>
+
+                <div id="playerScore1"
+                     class="player-score">
+                    0
+                </div>
+
+            </div>
+
+
+            <div class="turn-display">
+
+                <span class="turn-dot"></span>
+
+                <strong id="turnText">
+                    PLAYER 1'S TURN
+                </strong>
+
+            </div>
+
+
+            <div id="playerCard2"
+                 class="player-card">
+
+                <div class="player-avatar ai-avatar">
+                    P2
+                </div>
+
+                <div class="player-info">
+
+                    <strong id="playerName2">
+                        Royal AI
+                    </strong>
+
+                    <span id="playerGroup2">
+                        NOT ASSIGNED
+                    </span>
+
+                </div>
+
+                <div id="playerScore2"
+                     class="player-score">
+                    0
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- TABLE -->
+
+        <main class="table-area">
+
+            <div class="status-panel">
+
+                <div class="status-icon">
+                    🎱
+                </div>
+
+                <span id="statusText">
+                    Drag from the cue ball to aim and release.
+                </span>
+
+            </div>
+
+
+            <div class="table-wrapper">
+
+                <canvas id="poolCanvas"></canvas>
+
+            </div>
+
+
+            <!-- POWER -->
+
+            <div class="controls">
+
+                <div class="power-label">
+
+                    <span>SHOT POWER</span>
+
+                    <strong id="powerText">
+                        0%
+                    </strong>
+
+                </div>
+
+
+                <div class="power-bar">
+
+                    <div id="powerFill"
+                         class="power-fill">
+                    </div>
+
+                </div>
+
+
+                <div class="instruction">
+
+                    <span class="desktop-help">
+                        🖱️ Drag from the cue ball to aim and release
+                    </span>
+
+                    <span class="mobile-help">
+                        👆 Drag from the cue ball to aim and release
+                    </span>
+
+                </div>
+
+            </div>
+
+        </main>
+
+
+        <div class="rules-strip">
+
+            <span>● SOLIDS: 1–7</span>
+            <span>● STRIPES: 9–15</span>
+            <span>● 8-BALL: FINAL</span>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ================= RESULT ================= -->
+
+    <div id="resultModal"
+         class="modal hidden">
+
+        <div class="modal-box">
+
+            <div class="winner-ball">
+                8
+            </div>
+
+            <div class="winner-label">
+                MATCH COMPLETE
+            </div>
+
+            <h1 id="resultTitle">
+                PLAYER 1 WINS
+            </h1>
+
+            <p id="resultMessage">
+                Congratulations!
+            </p>
+
+
+            <div class="modal-buttons">
+
+                <button id="playAgainButton"
+                        class="modal-primary">
+                    PLAY AGAIN
+                </button>
+
+                <button id="menuButton"
+                        class="modal-secondary">
+                    MAIN MENU
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="game.js"></script>
+
+</body>
+
+</html>
