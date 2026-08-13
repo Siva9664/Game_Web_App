@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
 pydantic>=2.6.0
@@ -13,3 +14,7 @@ pillow>=10.2.0
 httpx>=0.27.0
 pytest>=8.1.0
 pytest-asyncio>=0.23.5
+=======
+Flask==3.1.1
+Flask-SocketIO==5.5.1
+>>>>>>> 952fa77dcd7a59c6c428a76f29d249089b78c532

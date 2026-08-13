@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<<<<<<< HEAD
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -560,3 +561,780 @@
   <script src="app.js"></script>
 </body>
 </html>
+=======
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width,
+                   initial-scale=1.0,
+                   maximum-scale=1.0,
+                   user-scalable=no">
+
+    <meta name="theme-color"
+          content="#030907">
+
+    <title>Royal 8 Ball</title>
+
+    <link rel="stylesheet"
+          href="style.css">
+
+    <!-- SOCKET.IO CLIENT -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     BACKGROUND
+===================================================== -->
+
+<div class="background-glow glow-one"></div>
+
+<div class="background-glow glow-two"></div>
+
+<div class="background-glow glow-three"></div>
+
+
+
+<!-- =====================================================
+     START SCREEN
+===================================================== -->
+
+<section id="startScreen"
+         class="screen">
+
+    <div class="menu-container">
+
+
+        <!-- BRAND -->
+
+        <div class="brand">
+
+            <div class="brand-ball">
+
+                <span>8</span>
+
+            </div>
+
+
+            <div>
+
+                <h1>ROYAL</h1>
+
+                <p>8 BALL</p>
+
+            </div>
+
+        </div>
+
+
+        <div class="menu-subtitle">
+
+            THE ULTIMATE POOL EXPERIENCE
+
+        </div>
+
+
+
+        <!-- =================================================
+             GAME MODES
+        ================================================== -->
+
+        <div class="mode-container">
+
+
+            <!-- SINGLE PLAYER -->
+
+            <button id="singleModeButton"
+                    class="mode-card selected"
+                    type="button">
+
+                <div class="mode-icon">
+                    🤖
+                </div>
+
+
+                <div class="mode-content">
+
+                    <h2>
+                        Single Player
+                    </h2>
+
+                    <p>
+                        Challenge Royal AI
+                    </p>
+
+                </div>
+
+
+                <div class="mode-check">
+                    ✓
+                </div>
+
+            </button>
+
+
+
+            <!-- TWO PLAYERS -->
+
+            <button id="twoModeButton"
+                    class="mode-card"
+                    type="button">
+
+                <div class="mode-icon">
+                    👥
+                </div>
+
+
+                <div class="mode-content">
+
+                    <h2>
+                        Two Players
+                    </h2>
+
+                    <p>
+                        Play on the same device
+                    </p>
+
+                </div>
+
+
+                <div class="mode-check">
+                    ✓
+                </div>
+
+            </button>
+
+
+
+            <!-- ONLINE -->
+
+            <button id="onlineModeButton"
+                    class="mode-card"
+                    type="button">
+
+                <div class="mode-icon">
+                    🌐
+                </div>
+
+
+                <div class="mode-content">
+
+                    <h2>
+                        Online Multiplayer
+                    </h2>
+
+                    <p>
+                        Play with a friend online
+                    </p>
+
+                </div>
+
+
+                <div class="mode-check">
+                    ✓
+                </div>
+
+            </button>
+
+
+        </div>
+
+
+
+        <!-- =================================================
+             PLAYER 1
+        ================================================== -->
+
+        <div class="players-form">
+
+
+            <div class="input-group">
+
+                <label>
+                    PLAYER 1
+                </label>
+
+
+                <input
+                    type="text"
+                    id="player1Input"
+                    placeholder="Your name"
+                    maxlength="18"
+                    autocomplete="off">
+
+            </div>
+
+
+
+            <!-- PLAYER 2 -->
+
+            <div id="player2Box"
+                 class="input-group hidden">
+
+                <label>
+                    PLAYER 2
+                </label>
+
+
+                <input
+                    type="text"
+                    id="player2Input"
+                    placeholder="Player 2"
+                    maxlength="18"
+                    autocomplete="off">
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- =================================================
+             ONLINE PANEL
+        ================================================== -->
+
+        <div id="onlinePanel"
+             class="online-panel hidden">
+
+
+            <div class="online-title">
+
+                🌐 ONLINE MULTIPLAYER
+
+            </div>
+
+
+
+            <!-- CREATE ROOM -->
+
+            <button id="createRoomButton"
+                    class="online-action"
+                    type="button">
+
+                <span>
+                    🏠 CREATE ROOM
+                </span>
+
+                <strong>
+                    +
+                </strong>
+
+            </button>
+
+
+
+            <!-- ROOM CREATED -->
+
+            <div id="createdRoom"
+                 class="created-room hidden">
+
+                <span>
+                    ROOM CODE
+                </span>
+
+
+                <strong id="roomCodeText">
+                    ------
+                </strong>
+
+
+                <small>
+                    Share this code with your friend
+                </small>
+
+            </div>
+
+
+
+            <!-- JOIN ROOM -->
+
+            <div class="join-room">
+
+                <input
+                    id="roomCodeInput"
+                    type="text"
+                    maxlength="6"
+                    placeholder="ENTER ROOM CODE"
+                    autocomplete="off">
+
+
+                <button id="joinRoomButton"
+                        type="button">
+
+                    JOIN
+
+                </button>
+
+            </div>
+
+
+
+            <!-- STATUS -->
+
+            <div id="onlineStatus"
+                 class="online-status">
+
+                ● NOT CONNECTED
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- =================================================
+             START GAME
+        ================================================== -->
+
+        <button id="startButton"
+                class="start-button"
+                type="button">
+
+            <span>
+                PLAY NOW
+            </span>
+
+            <strong>
+                →
+            </strong>
+
+        </button>
+
+
+
+        <!-- FOOTER -->
+
+        <div class="menu-footer">
+
+            <span>●</span>
+
+            LOCAL PLAY
+
+            <span>●</span>
+
+            NO INTERNET REQUIRED
+
+        </div>
+
+
+    </div>
+
+</section>
+
+
+
+
+<!-- =====================================================
+     GAME SCREEN
+===================================================== -->
+
+<section id="gameScreen"
+         class="game-screen hidden">
+
+
+    <!-- BACK -->
+
+    <button id="backButton"
+            class="back-button"
+            type="button">
+
+        ←
+
+        <span>
+            BACK
+        </span>
+
+    </button>
+
+
+
+    <!-- =================================================
+         HEADER
+    ================================================== -->
+
+    <header class="game-header">
+
+
+        <div class="game-title">
+
+
+            <div class="mini-ball">
+                8
+            </div>
+
+
+            <div>
+
+                <h2>
+                    ROYAL 8 BALL
+                </h2>
+
+
+                <span id="modeLabel">
+                    VS ROYAL AI
+                </span>
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- NEW GAME -->
+
+        <button id="restartButton"
+                class="new-game-button"
+                type="button">
+
+            ↻
+
+            <span>
+                NEW GAME
+            </span>
+
+        </button>
+
+
+    </header>
+
+
+
+
+    <!-- =================================================
+         PLAYERS BAR
+    ================================================== -->
+
+    <div class="players-bar">
+
+
+        <!-- PLAYER 1 -->
+
+        <div id="playerCard1"
+             class="player-card active">
+
+
+            <div class="player-avatar">
+
+                P1
+
+            </div>
+
+
+            <div class="player-info">
+
+                <strong id="playerName1">
+                    Player 1
+                </strong>
+
+
+                <span id="playerGroup1">
+                    NOT ASSIGNED
+                </span>
+
+            </div>
+
+
+            <div id="playerScore1"
+                 class="player-score">
+
+                0
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- TURN -->
+
+        <div class="turn-display">
+
+            <span class="turn-dot"></span>
+
+
+            <strong id="turnText">
+
+                PLAYER 1'S TURN
+
+            </strong>
+
+        </div>
+
+
+
+        <!-- PLAYER 2 -->
+
+        <div id="playerCard2"
+             class="player-card">
+
+
+            <div class="player-avatar ai-avatar">
+
+                P2
+
+            </div>
+
+
+            <div class="player-info">
+
+                <strong id="playerName2">
+
+                    Royal AI
+
+                </strong>
+
+
+                <span id="playerGroup2">
+
+                    NOT ASSIGNED
+
+                </span>
+
+            </div>
+
+
+            <div id="playerScore2"
+                 class="player-score">
+
+                0
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+
+
+    <!-- =================================================
+         TABLE AREA
+    ================================================== -->
+
+    <main class="table-area">
+
+
+        <!-- STATUS -->
+
+        <div class="status-panel">
+
+
+            <div class="status-icon">
+
+                🎱
+
+            </div>
+
+
+            <span id="statusText">
+
+                Drag from the cue ball
+                to aim and release.
+
+            </span>
+
+
+        </div>
+
+
+
+        <!-- TABLE -->
+
+        <div class="table-wrapper">
+
+            <canvas id="poolCanvas"></canvas>
+
+        </div>
+
+
+
+        <!-- =================================================
+             CONTROLS
+        ================================================== -->
+
+        <div class="controls">
+
+
+            <div class="power-label">
+
+                <span>
+                    SHOT POWER
+                </span>
+
+
+                <strong id="powerText">
+
+                    0%
+
+                </strong>
+
+            </div>
+
+
+
+            <div class="power-bar">
+
+                <div id="powerFill"
+                     class="power-fill">
+
+                </div>
+
+            </div>
+
+
+
+            <div class="instruction">
+
+
+                <span class="desktop-help">
+
+                    🖱️ Drag from the cue ball
+                    to aim and release
+
+                </span>
+
+
+                <span class="mobile-help">
+
+                    👆 Drag from the cue ball
+                    to aim and release
+
+                </span>
+
+
+            </div>
+
+
+        </div>
+
+
+    </main>
+
+
+
+
+    <!-- =================================================
+         RULES
+    ================================================== -->
+
+    <div class="rules-strip">
+
+
+        <span>
+            ● SOLIDS: 1–7
+        </span>
+
+
+        <span>
+            ● STRIPES: 9–15
+        </span>
+
+
+        <span>
+            ● 8-BALL: FINAL
+        </span>
+
+
+    </div>
+
+
+</section>
+
+
+
+
+<!-- =====================================================
+     RESULT MODAL
+===================================================== -->
+
+<div id="resultModal"
+     class="modal hidden">
+
+
+    <div class="modal-box">
+
+
+        <div class="winner-ball">
+
+            8
+
+        </div>
+
+
+        <div class="winner-label">
+
+            MATCH COMPLETE
+
+        </div>
+
+
+        <h1 id="resultTitle">
+
+            PLAYER 1 WINS
+
+        </h1>
+
+
+        <p id="resultMessage">
+
+            Congratulations!
+
+        </p>
+
+
+
+        <div class="modal-buttons">
+
+
+            <button id="playAgainButton"
+                    class="modal-primary"
+                    type="button">
+
+                PLAY AGAIN
+
+            </button>
+
+
+            <button id="menuButton"
+                    class="modal-secondary"
+                    type="button">
+
+                MAIN MENU
+
+            </button>
+
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+
+
+<!-- =====================================================
+     JAVASCRIPT
+===================================================== -->
+
+<script src="game.js"></script>
+
+
+</body>
+
+</html>
+>>>>>>> 952fa77dcd7a59c6c428a76f29d249089b78c532
