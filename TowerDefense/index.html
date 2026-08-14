@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Kingdom Guardians</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ================= TOP BAR ================= -->
+
+    <header class="topbar">
+
+        <div class="logo">
+            <span>⚔</span>
+            KINGDOM
+            <b>GUARDIANS</b>
+        </div>
+
+        <div class="resources">
+
+            <div class="resource gold">
+                <span>💰</span>
+                <div>
+                    <small>GOLD</small>
+                    <strong id="gold">1000</strong>
+                </div>
+            </div>
+
+            <div class="resource">
+                <span>❤️</span>
+                <div>
+                    <small>CASTLE</small>
+                    <strong id="lives">30</strong>
+                </div>
+            </div>
+
+            <div class="resource">
+                <span>🌊</span>
+                <div>
+                    <small>WAVE</small>
+                    <strong id="wave">1</strong>
+                </div>
+            </div>
+
+            <div class="resource">
+                <span>⭐</span>
+                <div>
+                    <small>SCORE</small>
+                    <strong id="score">0</strong>
+                </div>
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <!-- ================= GAME ================= -->
+
+    <main class="game-wrapper">
+
+        <canvas id="gameCanvas"></canvas>
+
+
+        <!-- WAVE INFORMATION -->
+
+        <div class="wave-panel">
+
+            <div>
+                <span>WAVE</span>
+                <strong id="waveNumber">1</strong>
+            </div>
+
+            <div class="progress">
+                <div id="waveProgress"></div>
+            </div>
+
+            <span id="enemyCounter">
+                0 / 0
+            </span>
+
+        </div>
+
+
+        <!-- BOSS BAR -->
+
+        <div
+            id="bossBar"
+            class="boss-bar hidden">
+
+            <div class="boss-title">
+                👹 BOSS
+            </div>
+
+            <div class="boss-health">
+                <div id="bossHealth"></div>
+            </div>
+
+        </div>
+
+
+        <!-- ABILITIES -->
+
+        <div class="abilities">
+
+            <button
+                class="ability"
+                id="meteor">
+
+                ☄️
+                <span>Meteor</span>
+                <small>100</small>
+
+            </button>
+
+            <button
+                class="ability"
+                id="freeze">
+
+                ❄️
+                <span>Freeze</span>
+                <small>75</small>
+
+            </button>
+
+            <button
+                class="ability"
+                id="lightning">
+
+                ⚡
+                <span>Storm</span>
+                <small>150</small>
+
+            </button>
+
+        </div>
+
+
+        <!-- START SCREEN -->
+
+        <div
+            id="startScreen"
+            class="overlay">
+
+            <div class="start-card">
+
+                <div class="castle-large">
+                    🏰
+                </div>
+
+                <h1>
+                    KINGDOM
+                    <span>GUARDIANS</span>
+                </h1>
+
+                <p>
+                    Build your defense.
+                    Protect your kingdom.
+                    Destroy the invading army.
+                </p>
+
+                <button
+                    id="startGame"
+                    class="main-button">
+
+                    ⚔ BEGIN DEFENSE
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- GAME OVER -->
+
+        <div
+            id="gameOver"
+            class="overlay hidden">
+
+            <div class="start-card">
+
+                <div class="castle-large">
+                    💀
+                </div>
+
+                <h1>
+                    KINGDOM
+                    <span>FALLEN</span>
+                </h1>
+
+                <p>
+                    Your castle has been destroyed.
+                </p>
+
+                <div class="final-score">
+                    Score:
+                    <b id="finalScore">0</b>
+                </div>
+
+                <button
+                    id="restart"
+                    class="main-button">
+
+                    🔄 PLAY AGAIN
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- ================= BOTTOM PANEL ================= -->
+
+    <section class="bottom-panel">
+
+        <!-- TOWER SHOP -->
+
+        <div class="tower-shop">
+
+            <div
+                class="tower-card selected"
+                data-type="archer">
+
+                <div class="tower-symbol">
+                    🏹
+                </div>
+
+                <div class="tower-details">
+
+                    <h3>Archer</h3>
+
+                    <p>
+                        Fast ranged attacks
+                    </p>
+
+                    <strong>
+                        💰 100
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="tower-card"
+                data-type="mage">
+
+                <div class="tower-symbol">
+                    🔥
+                </div>
+
+                <div class="tower-details">
+
+                    <h3>Arcane Mage</h3>
+
+                    <p>
+                        Splash magic damage
+                    </p>
+
+                    <strong>
+                        💰 200
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="tower-card"
+                data-type="cannon">
+
+                <div class="tower-symbol">
+                    💣
+                </div>
+
+                <div class="tower-details">
+
+                    <h3>Cannon</h3>
+
+                    <p>
+                        Massive area damage
+                    </p>
+
+                    <strong>
+                        💰 300
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="tower-card"
+                data-type="frost">
+
+                <div class="tower-symbol">
+                    ❄️
+                </div>
+
+                <div class="tower-details">
+
+                    <h3>Frost Tower</h3>
+
+                    <p>
+                        Slows enemies
+                    </p>
+
+                    <strong>
+                        💰 250
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- TOWER INFORMATION -->
+
+        <div
+            id="towerInfo"
+            class="tower-info">
+
+            <div class="info-title">
+                No tower selected
+            </div>
+
+            <div class="info-stats">
+
+                <span>
+                    DMG
+                    <b id="towerDamage">-</b>
+                </span>
+
+                <span>
+                    RNG
+                    <b id="towerRange">-</b>
+                </span>
+
+                <span>
+                    LV
+                    <b id="towerLevel">-</b>
+                </span>
+
+            </div>
+
+            <div class="tower-actions">
+
+                <button id="upgrade">
+                    ⬆ Upgrade
+                </button>
+
+                <button id="targetMode">
+                    🎯 First
+                </button>
+
+                <button id="sell">
+                    💰 Sell
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- GAME CONTROLS -->
+
+        <div class="controls">
+
+            <button
+                id="nextWave"
+                class="wave-button">
+
+                ⚔ NEXT WAVE
+
+            </button>
+
+            <button id="pause">
+                ⏸
+            </button>
+
+            <button id="speed">
+                ×1
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <script src="game.js"></script>
+
+</body>
+</html>
