@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Neon Lanes — Arcade Bowling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="sign">
+  <h1>NEON <span>LANES</span></h1>
+  <p>arcade ten&#8209;pin bowling</p>
+</div>
+
+<div class="app">
+
+  <!-- SCOREBOARD -->
+  <div class="scoreboard">
+    <div class="score-row" id="scoreRowPlayer">
+      <div class="score-name active" id="nameRowPlayer"><span class="dot"></span>YOU</div>
+      <!-- 10 frame boxes injected by JS -->
+    </div>
+    <div class="score-row" id="scoreRowAI">
+      <div class="score-name ai-row" id="nameRowAI"><span class="dot"></span>AI</div>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="status-bar">
+    <div class="msg" id="statusMsg">Frame 1 · Your turn · Throw 1</div>
+    <div class="badge" id="modeBadge">MATCH MODE</div>
+  </div>
+
+  <!-- GAME AREA -->
+  <div class="game-area">
+    <div class="lane-wrap">
+      <canvas id="lane" width="480" height="720"></canvas>
+      <div class="callout" id="callout"></div>
+    </div>
+    <div class="side-controls">
+      <div class="power-label">Power</div>
+      <div class="power-meter"><div class="ticks"></div><div class="power-fill" id="powerFill"></div></div>
+      <button id="powerBtn">HOLD<br>&amp; RELEASE</button>
+    </div>
+  </div>
+
+  <!-- AIM CONTROLS -->
+  <div class="aim-controls">
+    <div class="slider-row">
+      <label>Aim &nbsp;(left / right)&nbsp; <b id="aimVal">0&deg;</b></label>
+      <input type="range" id="aimSlider" min="-45" max="45" value="0" step="1">
+    </div>
+    <div class="slider-row">
+      <label>Curve &nbsp;(hook spin)&nbsp; <b id="curveVal">0</b></label>
+      <input type="range" id="curveSlider" min="-100" max="100" value="0" step="1">
+    </div>
+  </div>
+
+  <!-- BOTTOM CONTROLS -->
+  <div class="controls">
+    <button class="btn primary" id="btnNewGame">🎳 New Game</button>
+    <button class="btn" id="btnRestart">↺ Restart</button>
+    <button class="btn" id="btnPause">⏸ Pause</button>
+    <label class="toggle"><input type="checkbox" id="practiceToggle"> Practice mode</label>
+    <select id="difficultySelect">
+      <option value="easy">AI: Easy</option>
+      <option value="medium" selected>AI: Medium</option>
+      <option value="hard">AI: Hard</option>
+    </select>
+    <label class="toggle"><input type="checkbox" id="muteToggle"> Mute</label>
+  </div>
+
+</div>
+
+<footer>Built entirely with HTML / CSS / JS &middot; no external game assets or paid APIs</footer>
+
+<!-- PAUSE OVERLAY -->
+<div class="overlay" id="pauseOverlay">
+  <div class="card">
+    <h2>PAUSED</h2>
+    <p>Take a breather. Your lane is right where you left it.</p>
+    <div class="row"><button class="btn primary" id="btnResume">Resume</button></div>
+  </div>
+</div>
+
+<!-- GAME OVER OVERLAY -->
+<div class="overlay" id="gameOverOverlay">
+  <div class="card">
+    <h2>GAME OVER</h2>
+    <div class="winner" id="winnerText">You win!</div>
+    <div class="final-scores">
+      <div>YOU<b id="finalPlayerScore">0</b></div>
+      <div>AI<b id="finalAiScore">0</b></div>
+    </div>
+    <div class="row"><button class="btn primary" id="btnPlayAgain">Play Again</button></div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
