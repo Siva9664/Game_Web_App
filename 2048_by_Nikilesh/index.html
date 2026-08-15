@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>2048 - Monolithic Game</title>
+
+    <style>
+        /* =========================
+           RESET
+        ========================= */
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #faf8ef;
+            color: #776e65;
+
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            padding: 20px;
+        }
+
+
+        /* =========================
+           GAME CONTAINER
+        ========================= */
+
+        .game-container {
+            width: 100%;
+            max-width: 520px;
+        }
+
+
+        /* =========================
+           HEADER
+        ========================= */
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 20px;
+        }
+
+        .title {
+            font-size: 70px;
+            font-weight: bold;
+            color: #776e65;
+        }
+
+        .scores {
+            display: flex;
+            gap: 8px;
+        }
+
+        .score-box {
+            background: #bbada0;
+            color: white;
+
+            padding: 8px 15px;
+            border-radius: 5px;
+
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .score-value {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+
+        /* =========================
+           DESCRIPTION
+        ========================= */
+
+        .description {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            margin-bottom: 15px;
+
+            font-size: 15px;
+        }
+
+
+        /* =========================
+           BUTTON
+        ========================= */
+
+        button {
+            border: none;
+
+            background: #8f7a66;
+            color: white;
+
+            padding: 10px 15px;
+
+            border-radius: 5px;
+
+            font-size: 15px;
+            font-weight: bold;
+
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #776653;
+        }
+
+
+        /* =========================
+           GAME BOARD
+        ========================= */
+
+        .board {
+            position: relative;
+
+            width: 100%;
+            aspect-ratio: 1 / 1;
+
+            background: #bbada0;
+
+            border-radius: 8px;
+
+            padding: 10px;
+
+            display: grid;
+
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+
+            gap: 10px;
+
+            touch-action: none;
+        }
+
+
+        /* =========================
+           EMPTY CELL
+        ========================= */
+
+        .cell {
+            background: #cdc1b4;
+
+            border-radius: 5px;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-size: clamp(25px, 8vw, 45px);
+
+            font-weight: bold;
+
+            transition:
+                background 0.1s,
+                transform 0.1s;
+        }
+
+
+        /* =========================
+           TILE COLORS
+        ========================= */
+
+        .tile-2 {
+            background: #eee4da;
+            color: #776e65;
+        }
+
+        .tile-4 {
+            background: #ede0c8;
+            color: #776e65;
+        }
+
+        .tile-8 {
+            background: #f2b179;
+            color: white;
+        }
+
+        .tile-16 {
+            background: #f59563;
+            color: white;
+        }
+
+        .tile-32 {
+            background: #f67c5f;
+            color: white;
+        }
+
+        .tile-64 {
+            background: #f65e3b;
+            color: white;
+        }
+
+        .tile-128 {
+            background: #edcf72;
+            color: white;
+            font-size: clamp(22px, 7vw, 38px);
+        }
+
+        .tile-256 {
+            background: #edcc61;
+            color: white;
+            font-size: clamp(22px, 7vw, 38px);
+        }
+
+        .tile-512 {
+            background: #edc850;
+            color: white;
+            font-size: clamp(22px, 7vw, 38px);
+        }
+
+        .tile-1024 {
+            background: #edc53f;
+            color: white;
+            font-size: clamp(18px, 6vw, 32px);
+        }
+
+        .tile-2048 {
+            background: #edc22e;
+            color: white;
+            font-size: clamp(18px, 6vw, 32px);
+
+            box-shadow: 0 0 15px rgba(237, 194, 46, 0.8);
+        }
+
+        .tile-super {
+            background: #3c3a32;
+            color: white;
+
+            font-size: clamp(16px, 5vw, 28px);
+        }
+
+
+        /* =========================
+           GAME MESSAGE
+        ========================= */
+
+        .message {
+            display: none;
+
+            position: absolute;
+
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+
+            background: rgba(238, 228, 218, 0.85);
+
+            border-radius: 8px;
+
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+
+            z-index: 10;
+        }
+
+        .message h2 {
+            font-size: 45px;
+            margin-bottom: 20px;
+            color: #776e65;
+        }
+
+        .message p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+
+        /* =========================
+           CONTROLS
+        ========================= */
+
+        .controls {
+            margin-top: 20px;
+
+            background: #eee4da;
+
+            padding: 15px;
+
+            border-radius: 8px;
+
+            text-align: center;
+        }
+
+        .controls h3 {
+            margin-bottom: 8px;
+        }
+
+        .keys {
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        kbd {
+            background: #8f7a66;
+            color: white;
+
+            padding: 3px 7px;
+
+            border-radius: 4px;
+
+            font-family: monospace;
+        }
+
+
+        /* =========================
+           FOOTER
+        ========================= */
+
+        .footer {
+            text-align: center;
+
+            margin-top: 15px;
+
+            font-size: 13px;
+
+            color: #776e65;
+        }
+
+
+        /* =========================
+           MOBILE
+        ========================= */
+
+        @media (max-width: 500px) {
+
+            body {
+                padding: 12px;
+            }
+
+            .title {
+                font-size: 55px;
+            }
+
+            .score-box {
+                min-width: 65px;
+                padding: 6px 10px;
+            }
+
+            .score-value {
+                font-size: 18px;
+            }
+
+            .description {
+                font-size: 13px;
+            }
+
+            .controls {
+                display: none;
+            }
+        }
+
+    </style>
+</head>
+
+
+<body>
+
+    <div class="game-container">
+
+        <!-- =========================
+             HEADER
+        ========================== -->
+
+        <div class="header">
+
+            <h1 class="title">
+                2048
+            </h1>
+
+            <div class="scores">
+
+                <div class="score-box">
+
+                    <div class="score-label">
+                        Score
+                    </div>
+
+                    <div
+                        class="score-value"
+                        id="score"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="score-box">
+
+                    <div class="score-label">
+                        Best
+                    </div>
+
+                    <div
+                        class="score-value"
+                        id="best"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- =========================
+             DESCRIPTION
+        ========================== -->
+
+        <div class="description">
+
+            <p>
+                Join the numbers and get to <strong>2048!</strong>
+            </p>
+
+            <button onclick="restartGame()">
+                New Game
+            </button>
+
+        </div>
+
+
+        <!-- =========================
+             BOARD
+        ========================== -->
+
+        <div
+            class="board"
+            id="board"
+        >
+
+            <!-- GAME OVER / WIN MESSAGE -->
+
+            <div
+                class="message"
+                id="message"
+            >
+
+                <h2 id="messageTitle">
+                    Game Over!
+                </h2>
+
+                <p id="messageText">
+                    Try again!
+                </p>
+
+                <button onclick="restartGame()">
+                    Try Again
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- =========================
+             CONTROLS
+        ========================== -->
+
+        <div class="controls">
+
+            <h3>
+                Controls
+            </h3>
+
+            <div class="keys">
+
+                <kbd>↑</kbd>
+                <kbd>↓</kbd>
+                <kbd>←</kbd>
+                <kbd>→</kbd>
+
+                or
+
+                <kbd>W</kbd>
+                <kbd>A</kbd>
+                <kbd>S</kbd>
+                <kbd>D</kbd>
+
+                <br>
+
+                Use the arrow keys or WASD to move tiles.
+
+            </div>
+
+        </div>
+
+
+        <div class="footer">
+
+            2048 Style Game • Monolithic HTML/CSS/JS
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        /* =====================================================
+           GAME CONFIGURATION
+        ===================================================== */
+
+        const SIZE = 4;
+
+        let board = [];
+
+        let score = 0;
+
+        let bestScore =
+            Number(localStorage.getItem("2048-best")) || 0;
+
+        let gameWon = false;
+
+        let gameOver = false;
+
+
+        /* =====================================================
+           DOM ELEMENTS
+        ===================================================== */
+
+        const boardElement =
+            document.getElementById("board");
+
+        const scoreElement =
+            document.getElementById("score");
+
+        const bestElement =
+            document.getElementById("best");
+
+        const messageElement =
+            document.getElementById("message");
+
+        const messageTitle =
+            document.getElementById("messageTitle");
+
+        const messageText =
+            document.getElementById("messageText");
+
+
+        /* =====================================================
+           INITIALIZE BOARD
+        ===================================================== */
+
+        function createEmptyBoard() {
+
+            return Array.from(
+                { length: SIZE },
+                () => Array(SIZE).fill(0)
+            );
+
+        }
+
+
+        /* =====================================================
+           GET EMPTY CELLS
+        ===================================================== */
+
+        function getEmptyCells() {
+
+            const emptyCells = [];
+
+            for (let row = 0; row < SIZE; row++) {
+
+                for (let col = 0; col < SIZE; col++) {
+
+                    if (board[row][col] === 0) {
+
+                        emptyCells.push({
+                            row,
+                            col
+                        });
+
+                    }
+
+                }
+
+            }
+
+            return emptyCells;
+
+        }
+
+
+        /* =====================================================
+           ADD RANDOM TILE
+        ===================================================== */
+
+        function addRandomTile() {
+
+            const emptyCells =
+                getEmptyCells();
+
+            if (emptyCells.length === 0) {
+                return;
+            }
+
+            const randomCell =
+                emptyCells[
+                    Math.floor(
+                        Math.random() *
+                        emptyCells.length
+                    )
+                ];
+
+            /*
+                90% chance of 2
+                10% chance of 4
+            */
+
+            board[randomCell.row][randomCell.col] =
+                Math.random() < 0.9 ? 2 : 4;
+
+        }
+
+
+        /* =====================================================
+           DRAW BOARD
+        ===================================================== */
+
+        function drawBoard() {
+
+            /*
+                Remove old cells
+                but preserve message overlay
+            */
+
+            const message =
+                document.getElementById("message");
+
+            boardElement.innerHTML = "";
+
+            for (let row = 0; row < SIZE; row++) {
+
+                for (let col = 0; col < SIZE; col++) {
+
+                    const value =
+                        board[row][col];
+
+                    const cell =
+                        document.createElement("div");
+
+                    cell.classList.add("cell");
+
+                    if (value !== 0) {
+
+                        /*
+                            Tile class
+                        */
+
+                        if (value <= 2048) {
+
+                            cell.classList.add(
+                                `tile-${value}`
+                            );
+
+                        } else {
+
+                            cell.classList.add(
+                                "tile-super"
+                            );
+
+                        }
+
+                        cell.textContent = value;
+
+                    }
+
+                    boardElement.appendChild(cell);
+
+                }
+
+            }
+
+            /*
+                Add message overlay back
+            */
+
+            boardElement.appendChild(message);
+
+            updateScore();
+
+        }
+
+
+        /* =====================================================
+           UPDATE SCORE
+        ===================================================== */
+
+        function updateScore() {
+
+            scoreElement.textContent =
+                score;
+
+            bestElement.textContent =
+                bestScore;
+
+        }
+
+
+        /* =====================================================
+           SAVE BEST SCORE
+        ===================================================== */
+
+        function saveBestScore() {
+
+            if (score > bestScore) {
+
+                bestScore = score;
+
+                localStorage.setItem(
+                    "2048-best",
+                    bestScore
+                );
+
+            }
+
+        }
+
+
+        /* =====================================================
+           GET ROW
+        ===================================================== */
+
+        function getRow(row) {
+
+            return [...board[row]];
+
+        }
+
+
+        /* =====================================================
+           SET ROW
+        ===================================================== */
+
+        function setRow(row, values) {
+
+            board[row] = values;
+
+        }
+
+
+        /* =====================================================
+           GET COLUMN
+        ===================================================== */
+
+        function getColumn(col) {
+
+            const column = [];
+
+            for (let row = 0; row < SIZE; row++) {
+
+                column.push(
+                    board[row][col]
+                );
+
+            }
+
+            return column;
+
+        }
+
+
+        /* =====================================================
+           SET COLUMN
+        ===================================================== */
+
+        function setColumn(col, values) {
+
+            for (let row = 0; row < SIZE; row++) {
+
+                board[row][col] =
+                    values[row];
+
+            }
+
+        }
+
+
+        /* =====================================================
+           REMOVE ZEROES
+        ===================================================== */
+
+        function removeZeroes(line) {
+
+            return line.filter(
+                value => value !== 0
+            );
+
+        }
+
+
+        /* =====================================================
+           MERGE LINE
+        ===================================================== */
+
+        function mergeLine(line) {
+
+            /*
+                Remove empty spaces
+            */
+
+            let filtered =
+                removeZeroes(line);
+
+            const result = [];
+
+            for (
+                let i = 0;
+                i < filtered.length;
+                i++
+            ) {
+
+                /*
+                    If current tile and
+                    next tile are equal,
+                    merge them.
+                */
+
+                if (
+                    filtered[i] ===
+                    filtered[i + 1]
+                ) {
+
+                    const mergedValue =
+                        filtered[i] * 2;
+
+                    result.push(
+                        mergedValue
+                    );
+
+                    score +=
+                        mergedValue;
+
+                    i++;
+
+                } else {
+
+                    result.push(
+                        filtered[i]
+                    );
+
+                }
+
+            }
+
+            /*
+                Fill remaining spaces
+                with zeroes.
+            */
+
+            while (
+                result.length < SIZE
+            ) {
+
+                result.push(0);
+
+            }
+
+            return result;
+
+        }
+
+
+        /* =====================================================
+           MOVE LEFT
+        ===================================================== */
+
+        function moveLeft() {
+
+            let moved = false;
+
+            for (let row = 0; row < SIZE; row++) {
+
+                const oldRow =
+                    getRow(row);
+
+                const newRow =
+                    mergeLine(oldRow);
+
+                setRow(
+                    row,
+                    newRow
+                );
+
+                if (
+                    JSON.stringify(oldRow) !==
+                    JSON.stringify(newRow)
+                ) {
+
+                    moved = true;
+
+                }
+
+            }
+
+            return moved;
+
+        }
+
+
+        /* =====================================================
+           MOVE RIGHT
+        ===================================================== */
+
+        function moveRight() {
+
+            let moved = false;
+
+            for (let row = 0; row < SIZE; row++) {
+
+                const oldRow =
+                    getRow(row);
+
+                const reversed =
+                    [...oldRow].reverse();
+
+                const merged =
+                    mergeLine(reversed);
+
+                const newRow =
+                    merged.reverse();
+
+                setRow(
+                    row,
+                    newRow
+                );
+
+                if (
+                    JSON.stringify(oldRow) !==
+                    JSON.stringify(newRow)
+                ) {
+
+                    moved = true;
+
+                }
+
+            }
+
+            return moved;
+
+        }
+
+
+        /* =====================================================
+           MOVE UP
+        ===================================================== */
+
+        function moveUp() {
+
+            let moved = false;
+
+            for (let col = 0; col < SIZE; col++) {
+
+                const oldColumn =
+                    getColumn(col);
+
+                const newColumn =
+                    mergeLine(oldColumn);
+
+                setColumn(
+                    col,
+                    newColumn
+                );
+
+                if (
+                    JSON.stringify(oldColumn) !==
+                    JSON.stringify(newColumn)
+                ) {
+
+                    moved = true;
+
+                }
+
+            }
+
+            return moved;
+
+        }
+
+
+        /* =====================================================
+           MOVE DOWN
+        ===================================================== */
+
+        function moveDown() {
+
+            let moved = false;
+
+            for (let col = 0; col < SIZE; col++) {
+
+                const oldColumn =
+                    getColumn(col);
+
+                const reversed =
+                    [...oldColumn].reverse();
+
+                const merged =
+                    mergeLine(reversed);
+
+                const newColumn =
+                    merged.reverse();
+
+                setColumn(
+                    col,
+                    newColumn
+                );
+
+                if (
+                    JSON.stringify(oldColumn) !==
+                    JSON.stringify(newColumn)
+                ) {
+
+                    moved = true;
+
+                }
+
+            }
+
+            return moved;
+
+        }
+
+
+        /* =====================================================
+           CHECK FOR 2048
+        ===================================================== */
+
+        function checkWin() {
+
+            for (let row = 0; row < SIZE; row++) {
+
+                for (let col = 0; col < SIZE; col++) {
+
+                    if (
+                        board[row][col] === 2048 &&
+                        !gameWon
+                    ) {
+
+                        gameWon = true;
+
+                        showMessage(
+                            "You Win!",
+                            "You reached 2048!"
+                        );
+
+                        return true;
+
+                    }
+
+                }
+
+            }
+
+            return false;
+
+        }
+
+
+        /* =====================================================
+           CHECK GAME OVER
+        ===================================================== */
+
+        function checkGameOver() {
+
+            /*
+                If there is an empty cell,
+                the game isn't over.
+            */
+
+            if (
+                getEmptyCells().length > 0
+            ) {
+
+                return false;
+
+            }
+
+
+            /*
+                Check horizontal merges
+            */
+
+            for (let row = 0; row < SIZE; row++) {
+
+                for (
+                    let col = 0;
+                    col < SIZE - 1;
+                    col++
+                ) {
+
+                    if (
+                        board[row][col] ===
+                        board[row][col + 1]
+                    ) {
+
+                        return false;
+
+                    }
+
+                }
+
+            }
+
+
+            /*
+                Check vertical merges
+            */
+
+            for (let row = 0; row < SIZE - 1; row++) {
+
+                for (let col = 0; col < SIZE; col++) {
+
+                    if (
+                        board[row][col] ===
+                        board[row + 1][col]
+                    ) {
+
+                        return false;
+
+                    }
+
+                }
+
+            }
+
+            return true;
+
+        }
+
+
+        /* =====================================================
+           HANDLE MOVE
+        ===================================================== */
+
+        function move(direction) {
+
+            if (gameOver) {
+                return;
+            }
+
+            /*
+                Don't allow moves after
+                winning unless restarted.
+            */
+
+            if (gameWon) {
+                return;
+            }
+
+            let moved = false;
+
+            switch (direction) {
+
+                case "left":
+
+                    moved = moveLeft();
+                    break;
+
+                case "right":
+
+                    moved = moveRight();
+                    break;
+
+                case "up":
+
+                    moved = moveUp();
+                    break;
+
+                case "down":
+
+                    moved = moveDown();
+                    break;
+
+            }
+
+
+            /*
+                Only spawn a new tile if
+                the board actually changed.
+            */
+
+            if (moved) {
+
+                addRandomTile();
+
+                saveBestScore();
+
+                drawBoard();
+
+                checkWin();
+
+                if (checkGameOver()) {
+
+                    gameOver = true;
+
+                    showMessage(
+                        "Game Over!",
+                        "No more moves available."
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        /* =====================================================
+           SHOW MESSAGE
+        ===================================================== */
+
+        function showMessage(
+            title,
+            text
+        ) {
+
+            messageTitle.textContent =
+                title;
+
+            messageText.textContent =
+                text;
+
+            messageElement.style.display =
+                "flex";
+
+        }
+
+
+        /* =====================================================
+           HIDE MESSAGE
+        ===================================================== */
+
+        function hideMessage() {
+
+            messageElement.style.display =
+                "none";
+
+        }
+
+
+        /* =====================================================
+           RESTART GAME
+        ===================================================== */
+
+        function restartGame() {
+
+            board =
+                createEmptyBoard();
+
+            score = 0;
+
+            gameWon = false;
+
+            gameOver = false;
+
+            hideMessage();
+
+            /*
+                Start with two tiles
+            */
+
+            addRandomTile();
+            addRandomTile();
+
+            drawBoard();
+
+        }
+
+
+        /* =====================================================
+           KEYBOARD CONTROLS
+        ===================================================== */
+
+        document.addEventListener(
+            "keydown",
+            function(event) {
+
+                let direction = null;
+
+                switch (
+                    event.key.toLowerCase()
+                ) {
+
+                    case "arrowleft":
+                    case "a":
+
+                        direction = "left";
+                        break;
+
+                    case "arrowright":
+                    case "d":
+
+                        direction = "right";
+                        break;
+
+                    case "arrowup":
+                    case "w":
+
+                        direction = "up";
+                        break;
+
+                    case "arrowdown":
+                    case "s":
+
+                        direction = "down";
+                        break;
+
+                }
+
+
+                if (direction) {
+
+                    /*
+                        Prevent browser scrolling
+                    */
+
+                    event.preventDefault();
+
+                    move(direction);
+
+                }
+
+            }
+        );
+
+
+        /* =====================================================
+           TOUCH / SWIPE CONTROLS
+        ===================================================== */
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        boardElement.addEventListener(
+            "touchstart",
+            function(event) {
+
+                const touch =
+                    event.touches[0];
+
+                touchStartX =
+                    touch.clientX;
+
+                touchStartY =
+                    touch.clientY;
+
+            },
+            { passive: true }
+        );
+
+
+        boardElement.addEventListener(
+            "touchend",
+            function(event) {
+
+                const touch =
+                    event.changedTouches[0];
+
+                const touchEndX =
+                    touch.clientX;
+
+                const touchEndY =
+                    touch.clientY;
+
+                const deltaX =
+                    touchEndX - touchStartX;
+
+                const deltaY =
+                    touchEndY - touchStartY;
+
+                const minSwipeDistance = 30;
+
+                /*
+                    Ignore tiny movements
+                */
+
+                if (
+                    Math.abs(deltaX) <
+                    minSwipeDistance &&
+                    Math.abs(deltaY) <
+                    minSwipeDistance
+                ) {
+
+                    return;
+
+                }
+
+
+                /*
+                    Horizontal swipe
+                */
+
+                if (
+                    Math.abs(deltaX) >
+                    Math.abs(deltaY)
+                ) {
+
+                    if (deltaX > 0) {
+
+                        move("right");
+
+                    } else {
+
+                        move("left");
+
+                    }
+
+                }
+
+                /*
+                    Vertical swipe
+                */
+
+                else {
+
+                    if (deltaY > 0) {
+
+                        move("down");
+
+                    } else {
+
+                        move("up");
+
+                    }
+
+                }
+
+            },
+            { passive: true }
+        );
+
+
+        /* =====================================================
+           START GAME
+        ===================================================== */
+
+        bestElement.textContent =
+            bestScore;
+
+        restartGame();
+
+    </script>
+
+</body>
+</html>
