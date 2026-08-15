@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Subway Surfers 3D - Endless Runner</title>
+    <meta name="description" content="A 3D Subway Surfers clone built with Three.js, Web Audio API, and Flask backend featuring 3-lane running, trains, power-ups, and global leaderboard.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <!-- Main Style -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- 3D WebGL Canvas Container -->
+        <div id="game-canvas-container"></div>
+
+        <!-- Real-Time HUD Overlay -->
+        <div id="hud-overlay" class="hidden">
+            <div class="hud-top-bar">
+                <div class="hud-stat score-box">
+                    <span class="stat-label">SCORE</span>
+                    <span id="hud-score">0</span>
+                </div>
+                <div class="hud-stat coin-box">
+                    <span class="stat-icon">🪙</span>
+                    <span id="hud-coins">0</span>
+                </div>
+                <div class="hud-stat multiplier-box">
+                    <span id="hud-multiplier">1x</span>
+                </div>
+            </div>
+
+            <!-- Active Power-Ups Indicator Bar -->
+            <div id="powerup-timers">
+                <div id="timer-magnet" class="powerup-badge hidden">
+                    <span class="pu-icon">🧲</span>
+                    <div class="pu-bar"><div class="pu-fill"></div></div>
+                </div>
+                <div id="timer-jetpack" class="powerup-badge hidden">
+                    <span class="pu-icon">🚀</span>
+                    <div class="pu-bar"><div class="pu-fill"></div></div>
+                </div>
+                <div id="timer-hoverboard" class="powerup-badge hidden">
+                    <span class="pu-icon">🛹</span>
+                    <span class="pu-text">READY</span>
+                </div>
+                <div id="timer-multiplier" class="powerup-badge hidden">
+                    <span class="pu-icon">⚡</span>
+                    <div class="pu-bar"><div class="pu-fill"></div></div>
+                </div>
+                <div id="timer-sneakers" class="powerup-badge hidden">
+                    <span class="pu-icon">👟</span>
+                    <div class="pu-bar"><div class="pu-fill"></div></div>
+                </div>
+            </div>
+
+            <!-- Mobile Touch Controls overlay (Visible on mobile/small screens) -->
+            <div id="touch-controls">
+                <div class="touch-zone touch-left" id="btn-touch-left">◀</div>
+                <div class="touch-center-group">
+                    <div class="touch-zone touch-up" id="btn-touch-up">▲ JUMP</div>
+                    <div class="touch-zone touch-down" id="btn-touch-down">▼ SLIDE</div>
+                </div>
+                <div class="touch-zone touch-right" id="btn-touch-right">▶</div>
+            </div>
+            
+            <button id="btn-pause-game" class="icon-btn">⏸️</button>
+        </div>
+
+        <!-- Start Screen Overlay -->
+        <div id="screen-start" class="screen-overlay">
+            <div class="card glass-card">
+                <h1 class="game-title">SUBWAY <span class="highlight">SURFERS</span></h1>
+                <p class="subtitle">3D ENDLESS RUNNER</p>
+                <div class="hero-character-preview">🏃‍♂️🛹</div>
+                
+                <div class="controls-guide">
+                    <h3>HOW TO PLAY</h3>
+                    <div class="key-grid">
+                        <div class="key-item"><kbd>◄</kbd> <kbd>►</kbd> or <kbd>A</kbd> <kbd>D</kbd> : Move Lanes</div>
+                        <div class="key-item"><kbd>▲</kbd> or <kbd>W</kbd> : Jump</div>
+                        <div class="key-item"><kbd>▼</kbd> or <kbd>S</kbd> : Slide / Roll</div>
+                        <div class="key-item"><kbd>SPACE</kbd> : Hoverboard Shield</div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button id="btn-start-game" class="btn btn-primary btn-glow">START RUN 🚀</button>
+                    <button id="btn-view-leaderboard" class="btn btn-secondary">🏆 LEADERBOARD</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pause Screen Overlay -->
+        <div id="screen-pause" class="screen-overlay hidden">
+            <div class="card glass-card">
+                <h2>GAME PAUSED</h2>
+                <div class="btn-group">
+                    <button id="btn-resume-game" class="btn btn-primary">RESUME ▶</button>
+                    <button id="btn-restart-from-pause" class="btn btn-secondary">RESTART 🔄</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen Overlay -->
+        <div id="screen-gameover" class="screen-overlay hidden">
+            <div class="card glass-card gameover-card">
+                <h2 class="title-danger">CRASHED!</h2>
+                
+                <div class="final-stats-container">
+                    <div class="stat-card">
+                        <span class="label">SCORE</span>
+                        <span id="final-score-val" class="value">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="label">COINS</span>
+                        <span id="final-coins-val" class="value">0</span>
+                    </div>
+                </div>
+
+                <form id="form-submit-score" class="score-form">
+                    <label for="player-name-input">Save Your High Score:</label>
+                    <div class="input-group">
+                        <input type="text" id="player-name-input" placeholder="Enter Runner Name" maxlength="15" required>
+                        <button type="submit" id="btn-save-score" class="btn btn-primary">SUBMIT 🏆</button>
+                    </div>
+                    <p id="submit-status-msg" class="status-msg"></p>
+                </form>
+
+                <div class="btn-group">
+                    <button id="btn-restart-game" class="btn btn-primary btn-glow">RUN AGAIN 🔄</button>
+                    <button id="btn-gameover-leaderboard" class="btn btn-secondary">LEADERBOARD 🏆</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard Modal Overlay -->
+        <div id="modal-leaderboard" class="screen-overlay hidden">
+            <div class="card glass-card leaderboard-card">
+                <div class="modal-header">
+                    <h2>🏆 TOP RUNNERS</h2>
+                    <button id="btn-close-leaderboard" class="close-btn">&times;</button>
+                </div>
+                <div class="table-wrapper">
+                    <table class="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>RUNNER</th>
+                                <th>SCORE</th>
+                                <th>COINS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-tbody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <button id="btn-back-from-lb" class="btn btn-primary">BACK TO GAME</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/audio.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/UI.js') }}"></script>
+</body>
+</html>
