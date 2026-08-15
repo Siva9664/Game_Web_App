@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEMPLE RUN 3D - Ancient Relic Runner</title>
+    <meta name="description" content="An action-packed 3D Endless Temple Runner game built with HTML, CSS, Three.js, and Web Audio API.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <!-- 3D Canvas will be injected here -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- HUD (Heads Up Display) Overlay -->
+        <div id="hud" class="hidden">
+            <div class="hud-top">
+                <div class="hud-box score-box">
+                    <span class="hud-label">SCORE</span>
+                    <span id="score-display" class="hud-value">0</span>
+                </div>
+                <div class="hud-box coin-box">
+                    <div class="coin-icon">🪙</div>
+                    <span id="coin-display" class="hud-value">0</span>
+                </div>
+                <div class="hud-box multiplier-box">
+                    <span class="hud-label">MULTIPLIER</span>
+                    <span id="multiplier-display" class="hud-value">1x</span>
+                </div>
+            </div>
+
+            <!-- Active Power-up Timers Bar -->
+            <div id="powerup-bar-container">
+                <div id="powerup-magnet" class="powerup-active-pill hidden">
+                    <span class="pill-icon">🧲</span>
+                    <span class="pill-title">MAGNET</span>
+                    <div class="pill-timer-bar"><div class="fill"></div></div>
+                </div>
+                <div id="powerup-shield" class="powerup-active-pill hidden">
+                    <span class="pill-icon">🛡️</span>
+                    <span class="pill-title">SHIELD</span>
+                    <div class="pill-timer-bar"><div class="fill"></div></div>
+                </div>
+                <div id="powerup-boost" class="powerup-active-pill hidden">
+                    <span class="pill-icon">⚡</span>
+                    <span class="pill-title">BOOST</span>
+                    <div class="pill-timer-bar"><div class="fill"></div></div>
+                </div>
+                <div id="powerup-multiplier" class="powerup-active-pill hidden">
+                    <span class="pill-icon">2️⃣</span>
+                    <span class="pill-title">2X SCORE</span>
+                    <div class="pill-timer-bar"><div class="fill"></div></div>
+                </div>
+            </div>
+
+            <!-- Stumble / Danger Warning Vignette -->
+            <div id="danger-vignette"></div>
+            <!-- Dynamic Notification Popup (e.g. "+500 BOOST!", "SHIELD SAVED YOU!") -->
+            <div id="game-toast"></div>
+            
+            <!-- Pause Button -->
+            <button id="btn-pause" class="icon-btn" title="Pause Game">⏸</button>
+        </div>
+
+        <!-- Start Screen Menu -->
+        <div id="start-screen" class="overlay-screen active">
+            <div class="title-container">
+                <div class="relic-badge">ANCIENT ESCAPE</div>
+                <h1 class="game-title">TEMPLE RUN <span class="glow-3d">3D</span></h1>
+                <p class="game-subtitle">RUN FOR YOUR LIFE. OUTRUN THE SHADOW GUARDIAN.</p>
+            </div>
+
+            <div class="stats-preview">
+                <div class="stat-item">
+                    <span class="stat-label">TOP DISTANCE</span>
+                    <span id="best-score-val" class="stat-value">0m</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">TOTAL RELIC COINS</span>
+                    <span id="total-coins-val" class="stat-value">0</span>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="btn-start" class="btn-primary glow-button">
+                    <span class="btn-text">PLAY RUN</span>
+                    <span class="btn-sub">PRESS SPACE / TAP TO START</span>
+                </button>
+                <button id="btn-open-shop" class="btn-secondary">
+                    <span class="btn-icon">🛒</span> RELIC SHOP & SKINS
+                </button>
+            </div>
+
+            <div class="controls-guide">
+                <div class="guide-key"><span class="key">A</span> / <span class="key">D</span> or <span class="key">←</span> <span class="key">→</span> : Move Lanes</div>
+                <div class="guide-key"><span class="key">W</span> / <span class="key">Space</span> / <span class="key">↑</span> : Jump</div>
+                <div class="guide-key"><span class="key">S</span> / <span class="key">↓</span> : Slide</div>
+                <div class="guide-key"><span class="key">A</span> / <span class="key">D</span> at Turns : 90° Turn</div>
+                <div class="guide-touch">Mobile: Swipe Left/Right, Up (Jump), Down (Slide)</div>
+            </div>
+        </div>
+
+        <!-- Pause Screen Menu -->
+        <div id="pause-screen" class="overlay-screen hidden">
+            <div class="pause-card glass-panel">
+                <h2>GAME PAUSED</h2>
+                <div class="menu-column">
+                    <button id="btn-resume" class="btn-primary">RESUME</button>
+                    <button id="btn-sound-toggle" class="btn-secondary">SOUND: ON</button>
+                    <button id="btn-restart-pause" class="btn-secondary">RESTART</button>
+                    <button id="btn-quit-pause" class="btn-secondary">MAIN MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="overlay-screen hidden">
+            <div class="gameover-card glass-panel">
+                <div class="skull-badge">💀 DEFEATED</div>
+                <h2 class="gameover-title">YOU CRASHED!</h2>
+                <p id="gameover-reason">The Shadow Guardian claimed your soul.</p>
+
+                <div class="results-grid">
+                    <div class="result-box">
+                        <span class="result-label">FINAL SCORE</span>
+                        <span id="final-score-val" class="result-val">0</span>
+                    </div>
+                    <div class="result-box">
+                        <span class="result-label">COINS COLLECTED</span>
+                        <span id="final-coins-val" class="result-val">0</span>
+                    </div>
+                    <div class="result-box highlight">
+                        <span class="result-label">NEW BEST?</span>
+                        <span id="new-record-tag" class="result-val">NO</span>
+                    </div>
+                </div>
+
+                <div class="action-buttons horizontal">
+                    <button id="btn-retry" class="btn-primary glow-button">RUN AGAIN</button>
+                    <button id="btn-shop-gameover" class="btn-secondary">SHOP</button>
+                    <button id="btn-menu-gameover" class="btn-secondary">MENU</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relic Shop & Skins Modal -->
+        <div id="shop-screen" class="overlay-screen hidden">
+            <div class="shop-container glass-panel">
+                <div class="shop-header">
+                    <h2>ANCIENT SHOP & UPGRADES</h2>
+                    <div class="shop-coin-balance">
+                        <span class="coin-icon">🪙</span>
+                        <span id="shop-coins-display">0</span>
+                    </div>
+                    <button id="btn-close-shop" class="close-btn">&times;</button>
+                </div>
+
+                <div class="shop-tabs">
+                    <button id="tab-powerups" class="tab-btn active">POWER-UP UPGRADES</button>
+                    <button id="tab-skins" class="tab-btn">RUNNER SKINS</button>
+                </div>
+
+                <div id="shop-content-powerups" class="shop-tab-content active">
+                    <div class="upgrade-card" data-upgrade="magnet">
+                        <div class="upg-icon">🧲</div>
+                        <div class="upg-info">
+                            <h3>COIN MAGNET</h3>
+                            <p>Attracts all nearby coins automatically.</p>
+                            <div class="upg-level-bar">
+                                <span class="level-indicator">Lvl <span class="lvl-num">1</span>/5</span>
+                            </div>
+                        </div>
+                        <button class="btn-upgrade" data-type="magnet">UPGRADE (<span class="upg-cost">200</span> 🪙)</button>
+                    </div>
+
+                    <div class="upgrade-card" data-upgrade="shield">
+                        <div class="upg-icon">🛡️</div>
+                        <div class="upg-info">
+                            <h3>RELIC SHIELD</h3>
+                            <p>Protects player from 1 fatal crash or stumble.</p>
+                            <div class="upg-level-bar">
+                                <span class="level-indicator">Lvl <span class="lvl-num">1</span>/5</span>
+                            </div>
+                        </div>
+                        <button class="btn-upgrade" data-type="shield">UPGRADE (<span class="upg-cost">300</span> 🪙)</button>
+                    </div>
+
+                    <div class="upgrade-card" data-upgrade="boost">
+                        <div class="upg-icon">⚡</div>
+                        <div class="upg-info">
+                            <h3>GEM SPRINT</h3>
+                            <p>Supercharged invincible forward dash.</p>
+                            <div class="upg-level-bar">
+                                <span class="level-indicator">Lvl <span class="lvl-num">1</span>/5</span>
+                            </div>
+                        </div>
+                        <button class="btn-upgrade" data-type="boost">UPGRADE (<span class="upg-cost">400</span> 🪙)</button>
+                    </div>
+
+                    <div class="upgrade-card" data-upgrade="multiplier">
+                        <div class="upg-icon">2️⃣</div>
+                        <div class="upg-info">
+                            <h3>2X MULTIPLIER</h3>
+                            <p>Doubles all score gains for a duration.</p>
+                            <div class="upg-level-bar">
+                                <span class="level-indicator">Lvl <span class="lvl-num">1</span>/5</span>
+                            </div>
+                        </div>
+                        <button class="btn-upgrade" data-type="multiplier">UPGRADE (<span class="upg-cost">250</span> 🪙)</button>
+                    </div>
+                </div>
+
+                <div id="shop-content-skins" class="shop-tab-content hidden">
+                    <div class="skins-grid">
+                        <div class="skin-card selected" data-skin="explorer">
+                            <div class="skin-avatar explorer-skin">🤠</div>
+                            <h3>INDY EXPLORER</h3>
+                            <p>Classic relic hunter with legendary endurance.</p>
+                            <button class="btn-select-skin" data-skin="explorer">EQUIPPED</button>
+                        </div>
+                        <div class="skin-card" data-skin="ninja">
+                            <div class="skin-avatar ninja-skin">🥷</div>
+                            <h3>SHADOW NINJA</h3>
+                            <p>Swift master of silent jumps and quick turns.</p>
+                            <button class="btn-select-skin" data-skin="ninja" data-cost="500">BUY 500 🪙</button>
+                        </div>
+                        <div class="skin-card" data-skin="golden">
+                            <div class="skin-avatar golden-skin">👑</div>
+                            <h3>GOLDEN WARRIOR</h3>
+                            <p>Clad in ancient sun gold armor.</p>
+                            <button class="btn-select-skin" data-skin="golden" data-cost="1200">BUY 1200 🪙</button>
+                        </div>
+                        <div class="skin-card" data-skin="cyber">
+                            <div class="skin-avatar cyber-skin">🤖</div>
+                            <h3>CYBER RELIC</h3>
+                            <p>Futuristic time traveler seeking ancient artifacts.</p>
+                            <button class="btn-select-skin" data-skin="cyber" data-cost="2500">BUY 2500 🪙</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Touch Controls for Mobile/Tablets -->
+        <div id="touch-controls" class="hidden">
+            <div id="touch-left" class="touch-zone">◀ MOVE</div>
+            <div id="touch-jump" class="touch-zone">▲ JUMP</div>
+            <div id="touch-slide" class="touch-zone">▼ SLIDE</div>
+            <div id="touch-right" class="touch-zone">MOVE ▶</div>
+        </div>
+    </div>
+
+    <!-- Game JavaScript Modules -->
+    <script src="js/audio.js"></script>
+    <script src="js/shop.js"></script>
+    <script src="js/scene.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/monster.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/obstacles.js"></script>
+    <script src="js/collectibles.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
