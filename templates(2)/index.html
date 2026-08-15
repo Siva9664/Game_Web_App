@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Online Checkers</title>
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #1b1b1b;
+            color: white;
+            text-align: center;
+        }
+
+        header {
+            background: #111;
+            padding: 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 32px;
+        }
+
+        header p {
+            color: #aaa;
+        }
+
+        #lobby {
+            margin: 25px;
+        }
+
+        input {
+            padding: 12px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 11px 18px;
+            margin: 5px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            background: #555;
+            font-size: 15px;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        .create {
+            background: #2e7d32;
+        }
+
+        .join {
+            background: #1565c0;
+        }
+
+        .resign {
+            background: #c62828;
+        }
+
+        #gameInfo {
+            margin: 15px;
+        }
+
+        #players {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        #turn {
+            color: #ffd54f;
+            font-size: 18px;
+        }
+
+        #gameArea {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 25px;
+            margin: 20px;
+        }
+
+        #board {
+            width: 480px;
+            height: 480px;
+
+            display: grid;
+
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+
+            border: 5px solid #111;
+        }
+
+        .square {
+            position: relative;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-size: 40px;
+
+            cursor: pointer;
+
+            user-select: none;
+        }
+
+        .light {
+            background: #f0d9b5;
+        }
+
+        .dark {
+            background: #b58863;
+        }
+
+        .piece {
+            width: 65%;
+            height: 65%;
+
+            border-radius: 50%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-size: 28px;
+
+            box-shadow:
+                0 3px 6px rgba(0,0,0,0.5);
+        }
+
+        .red-piece {
+            background: #d32f2f;
+        }
+
+        .black-piece {
+            background: #222;
+        }
+
+        .king {
+            border: 4px solid gold;
+        }
+
+        .selected {
+            outline: 4px solid yellow;
+            outline-offset: -4px;
+        }
+
+        .possible {
+            box-shadow:
+                inset 0 0 0 6px
+                rgba(0, 255, 0, 0.45);
+        }
+
+        #history {
+            width: 220px;
+            background: #292929;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        #moves {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .move-row {
+            padding: 7px;
+            border-bottom: 1px solid #444;
+        }
+
+        #controls {
+            margin: 20px;
+        }
+
+        #gameOverBox {
+            display: none;
+
+            width: 330px;
+
+            margin: 30px auto;
+
+            padding: 25px;
+
+            background: #292929;
+
+            border-radius: 10px;
+
+            box-shadow: 0 5px 20px black;
+        }
+
+        #gameOverBox h2 {
+            color: gold;
+        }
+
+        #resultText {
+            font-size: 20px;
+        }
+
+        #message {
+            color: #90caf9;
+        }
+
+        @media (max-width: 800px) {
+
+            #gameArea {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            #board {
+                width: 92vw;
+                height: 92vw;
+                max-width: 480px;
+                max-height: 480px;
+            }
+
+            .piece {
+                font-size: 20px;
+            }
+
+            #history {
+                width: 90vw;
+                max-width: 450px;
+            }
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<header>
+
+    <h1>🔴 Online Checkers ⚫</h1>
+
+    <p>
+        Play Checkers with your friend online
+    </p>
+
+</header>
+
+
+<!-- LOBBY -->
+
+<div id="lobby">
+
+    <input
+        id="playerName"
+        placeholder="Your Name"
+    >
+
+    <input
+        id="gameId"
+        placeholder="Game ID"
+    >
+
+    <br>
+
+    <button
+        class="create"
+        onclick="createGame()"
+    >
+        Create Game
+    </button>
+
+    <button
+        class="join"
+        onclick="joinGame()"
+    >
+        Join Game
+    </button>
+
+</div>
+
+
+<!-- GAME INFO -->
+
+<div id="gameInfo">
+
+    <p id="message"></p>
+
+    <p id="players"></p>
+
+    <p id="turn">
+        Waiting for game...
+    </p>
+
+</div>
+
+
+<!-- GAME -->
+
+<div id="gameArea">
+
+    <div id="board"></div>
+
+
+    <div id="history">
+
+        <h2>📜 Moves</h2>
+
+        <div id="moves">
+            No moves yet
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- CONTROLS -->
+
+<div id="controls">
+
+    <button
+        class="resign"
+        onclick="resignGame()"
+    >
+        🏳 Resign
+    </button>
+
+    <button onclick="location.reload()">
+        🔄 New Game
+    </button>
+
+</div>
+
+
+<!-- GAME OVER -->
+
+<div id="gameOverBox">
+
+    <h2>GAME OVER</h2>
+
+    <p id="resultText"></p>
+
+    <button onclick="location.reload()">
+        Play Again
+    </button>
+
+</div>
+
+
+<script>
+
+
+const socket = io();
+
+
+const boardElement =
+    document.getElementById("board");
+
+const messageElement =
+    document.getElementById("message");
+
+const playersElement =
+    document.getElementById("players");
+
+const turnElement =
+    document.getElementById("turn");
+
+const movesElement =
+    document.getElementById("moves");
+
+const gameOverBox =
+    document.getElementById("gameOverBox");
+
+const resultText =
+    document.getElementById("resultText");
+
+
+let gameId = "";
+
+let myColor = "";
+
+let board = [];
+
+let selected = null;
+
+let legalMoves = [];
+
+let currentTurn = "red";
+
+let moveHistory = [];
+
+let gameOver = false;
+
+
+/* CREATE GAME */
+
+function createGame() {
+
+    const name =
+        document
+        .getElementById("playerName")
+        .value
+        .trim();
+
+    if (!name) {
+
+        alert("Enter your name");
+
+        return;
+    }
+
+    socket.emit(
+        "create_game",
+        name
+    );
+
+}
+
+
+/* JOIN GAME */
+
+function joinGame() {
+
+    const name =
+        document
+        .getElementById("playerName")
+        .value
+        .trim();
+
+    const id =
+        document
+        .getElementById("gameId")
+        .value
+        .trim();
+
+    if (!name) {
+
+        alert("Enter your name");
+
+        return;
+    }
+
+    if (!id) {
+
+        alert("Enter Game ID");
+
+        return;
+    }
+
+    gameId =
+        id.toUpperCase();
+
+    socket.emit(
+        "join_game",
+        {
+            game_id: gameId,
+            name: name
+        }
+    );
+
+}
+
+
+/* GAME CREATED */
+
+socket.on(
+    "game_created",
+    function(data) {
+
+        gameId =
+            data.game_id;
+
+        myColor =
+            data.color;
+
+        messageElement.textContent =
+            "Game ID: " +
+            gameId +
+            " | Share this ID";
+
+        playersElement.textContent =
+            data.name +
+            " - 🔴 Red";
+
+        turnElement.textContent =
+            "Waiting for Black player...";
+
+    }
+);
+
+
+/* GAME JOINED */
+
+socket.on(
+    "game_joined",
+    function(data) {
+
+        gameId =
+            data.game_id;
+
+        myColor =
+            data.color;
+
+    }
+);
+
+
+/* PLAYERS READY */
+
+socket.on(
+    "players_ready",
+    function(data) {
+
+        playersElement.textContent =
+            data.red +
+            " 🔴  VS  ⚫ " +
+            data.black;
+
+        messageElement.textContent =
+            "Game Started!";
+
+        board = createLocalBoard();
+
+        drawBoard();
+
+        updateTurn();
+
+    }
+);
+
+
+/* ERROR */
+
+socket.on(
+    "error_message",
+    function(message) {
+
+        alert(message);
+
+    }
+);
+
+
+/* CREATE LOCAL BOARD */
+
+function createLocalBoard() {
+
+    const newBoard =
+        Array.from(
+            { length: 8 },
+            () =>
+                Array(8).fill(null)
+        );
+
+
+    for (
+        let row = 0;
+        row < 3;
+        row++
+    ) {
+
+        for (
+            let col = 0;
+            col < 8;
+            col++
+        ) {
+
+            if (
+                (row + col) % 2 === 1
+            ) {
+
+                newBoard[row][col] = {
+                    color: "black",
+                    king: false
+                };
+
+            }
+
+        }
+
+    }
+
+
+    for (
+        let row = 5;
+        row < 8;
+        row++
+    ) {
+
+        for (
+            let col = 0;
+            col < 8;
+            col++
+        ) {
+
+            if (
+                (row + col) % 2 === 1
+            ) {
+
+                newBoard[row][col] = {
+                    color: "red",
+                    king: false
+                };
+
+            }
+
+        }
+
+    }
+
+
+    return newBoard;
+
+}
+
+
+/* DRAW BOARD */
+
+function drawBoard() {
+
+    boardElement.innerHTML = "";
+
+
+    for (
+        let row = 0;
+        row < 8;
+        row++
+    ) {
+
+        for (
+            let col = 0;
+            col < 8;
+            col++
+        ) {
+
+            const square =
+                document.createElement("div");
+
+
+            square.classList.add(
+                "square"
+            );
+
+
+            if (
+                (row + col) % 2 === 0
+            ) {
+
+                square.classList.add(
+                    "light"
+                );
+
+            } else {
+
+                square.classList.add(
+                    "dark"
+                );
+
+            }
+
+
+            const piece =
+                board[row][col];
+
+
+            if (piece) {
+
+                const pieceElement =
+                    document.createElement("div");
+
+
+                pieceElement.classList.add(
+                    "piece"
+                );
+
+
+                if (
+                    piece.color === "red"
+                ) {
+
+                    pieceElement.classList.add(
+                        "red-piece"
+                    );
+
+                } else {
+
+                    pieceElement.classList.add(
+                        "black-piece"
+                    );
+
+                }
+
+
+                if (piece.king) {
+
+                    pieceElement.classList.add(
+                        "king"
+                    );
+
+                    pieceElement.textContent =
+                        "♛";
+
+                }
+
+
+                square.appendChild(
+                    pieceElement
+                );
+
+            }
+
+
+            if (
+                selected &&
+                selected[0] === row &&
+                selected[1] === col
+            ) {
+
+                square.classList.add(
+                    "selected"
+                );
+
+            }
+
+
+            const possible =
+                legalMoves.some(
+                    move =>
+                        move.to[0] === row &&
+                        move.to[1] === col
+                );
+
+
+            if (possible) {
+
+                square.classList.add(
+                    "possible"
+                );
+
+            }
+
+
+            square.onclick =
+                function() {
+
+                    squareClicked(
+                        row,
+                        col
+                    );
+
+                };
+
+
+            boardElement.appendChild(
+                square
+            );
+
+        }
+
+    }
+
+}
+
+
+/* SQUARE CLICK */
+
+function squareClicked(row, col) {
+
+    if (gameOver) {
+        return;
+    }
+
+
+    if (myColor !== currentTurn) {
+        return;
+    }
+
+
+    /*
+     * SELECT A PIECE
+     */
+
+    if (!selected) {
+
+        const piece =
+            board[row][col];
+
+
+        if (!piece) {
+            return;
+        }
+
+
+        if (
+            piece.color !== myColor
+        ) {
+            return;
+        }
+
+
+        selected = [
+            row,
+            col
+        ];
+
+
+        socket.emit(
+            "get_moves",
+            {
+                game_id: gameId,
+                row: row,
+                col: col,
+                color: myColor
+            }
+        );
+
+
+        return;
+    }
+
+
+    /*
+     * TRY MOVE
+     */
+
+    const possible =
+        legalMoves.find(
+            move =>
+                move.to[0] === row &&
+                move.to[1] === col
+        );
+
+
+    if (!possible) {
+
+        const newPiece =
+            board[row][col];
+
+
+        if (
+            newPiece &&
+            newPiece.color === myColor
+        ) {
+
+            selected = [
+                row,
+                col
+            ];
+
+
+            socket.emit(
+                "get_moves",
+                {
+                    game_id: gameId,
+                    row: row,
+                    col: col,
+                    color: myColor
+                }
+            );
+
+            return;
+        }
+
+
+        selected = null;
+
+        legalMoves = [];
+
+        drawBoard();
+
+        return;
+    }
+
+
+    socket.emit(
+        "make_move",
+        {
+            game_id: gameId,
+
+            color: myColor,
+
+            move: possible
+        }
+    );
+
+}
+
+
+/* LEGAL MOVES */
+
+socket.on(
+    "legal_moves",
+    function(moves) {
+
+        legalMoves = moves;
+
+        drawBoard();
+
+    }
+);
+
+
+/* MOVE MADE */
+
+socket.on(
+    "move_made",
+    function(data) {
+
+        board =
+            data.board;
+
+        currentTurn =
+            data.turn;
+
+
+        moveHistory.push(
+            data.move
+        );
+
+
+        updateMoveHistory();
+
+
+        /*
+         * Continue multiple jump
+         */
+
+        if (
+            data.another_capture &&
+            myColor === currentTurn
+        ) {
+
+            selected =
+                data.move.to;
+
+            socket.emit(
+                "get_moves",
+                {
+                    game_id: gameId,
+
+                    row: selected[0],
+
+                    col: selected[1],
+
+                    color: myColor
+                }
+            );
+
+        } else {
+
+            selected = null;
+
+            legalMoves = [];
+
+        }
+
+
+        drawBoard();
+
+        updateTurn();
+
+    }
+);
+
+
+/* TURN */
+
+function updateTurn() {
+
+    if (
+        currentTurn === "red"
+    ) {
+
+        turnElement.textContent =
+            "🔴 Red's Turn";
+
+    } else {
+
+        turnElement.textContent =
+            "⚫ Black's Turn";
+
+    }
+
+}
+
+
+/* MOVE HISTORY */
+
+function updateMoveHistory() {
+
+    movesElement.innerHTML = "";
+
+
+    moveHistory.forEach(
+        function(move, index) {
+
+            const row =
+                document.createElement("div");
+
+
+            row.classList.add(
+                "move-row"
+            );
+
+
+            row.textContent =
+                (index + 1) +
+                ". " +
+                move.color +
+                " : " +
+                move.from +
+                " → " +
+                move.to;
+
+
+            movesElement.appendChild(
+                row
+            );
+
+        }
+    );
+
+}
+
+
+/* GAME OVER */
+
+socket.on(
+    "game_over",
+    function(data) {
+
+        gameOver = true;
+
+        resultText.textContent =
+            data.winner.toUpperCase() +
+            " WINS!\n" +
+            data.reason;
+
+        gameOverBox.style.display =
+            "block";
+
+    }
+);
+
+
+/* RESIGN */
+
+function resignGame() {
+
+    if (!gameId || gameOver) {
+        return;
+    }
+
+
+    socket.emit(
+        "resign",
+        {
+            game_id: gameId,
+
+            color: myColor
+        }
+    );
+
+}
+
+
+/* OPPONENT LEFT */
+
+socket.on(
+    "opponent_left",
+    function(data) {
+
+        alert(
+            data.message
+        );
+
+    }
+);
+
+
+/* INITIAL BOARD */
+
+board =
+    createLocalBoard();
+
+drawBoard();
+
+</script>
+
+
+</body>
+
+</html>
